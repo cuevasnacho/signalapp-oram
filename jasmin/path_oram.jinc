@@ -1,0 +1,119 @@
+require "params.jinc"
+
+inline
+fn random_mod_by_pow_of_2(
+  reg u64 oram,
+  reg u64 modulus
+) -> reg u64
+{
+  stack u8[8] random;
+  reg ptr u8[8] randomp;
+  reg u64 r;
+
+  randomp = random;
+  randomp = #randombytes(randomp);
+  r = randomp.[u64 0];
+  modulus -= 1;
+  r &= modulus;
+  return r;
+}
+
+/**
+ * @brief read the path from the bucket store, performing the same sequence of instructions independent of the input.
+ * Post-condition: the block with `id == target_block_id` will *not* be in the stash - neither the overflow or the path stash.
+ * It will be in the block `*target` and the new position will be set.
+ * 
+ * @param oram 
+ * @param path Path for block with ID `target_block_id`.
+ * @param target_block_id ID of block to read
+ * @param target On output, block with ID `target_block_id` will be available here
+ * @param new_position Position for the target block after this access
+ */
+fn oram_read_path_for_block(
+  reg u64 oram path,
+  reg u64 target_block_id,
+  reg u64 target,
+  reg u64 new_position
+)
+{
+  reg u64 stash bucket_store value;
+  inline int i;
+
+  stash = [oram + 8 * STASH_ADDR];
+  bucket_store = [oram];
+  for i = 0 to PATH_LENGTH
+  {
+    value = [path + 8 * i]; // should add 8 for C
+    stash_add_path_bucket(stash, bucket_store, value, target_block_id, target);
+  }
+  stash_scan_overflow_for_target(stash, target_block_id, target);
+
+  [target] = target_block_id;
+  [target + 8] = new_position;
+}
+
+fn read_accessor(
+  reg u64 block_data,
+  reg u64 out_data
+)
+{
+  reg u64 r64;
+  inline int i;
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS * 8
+  {
+    r64 = [block_data + 8 * i];
+    [out_data + 8 * i] = r64;
+  }
+}
+
+// args are fixed for oram_put
+fn write_accessor_full(
+  reg u64 block_data,
+  reg u64 in_data,
+  reg u64 out_data
+)
+{
+  reg u64 bound addr1 addr2;
+  reg u8 cond ctmp;
+  reg bool b;
+  inline int i;
+
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS * 8
+  {
+    b = i >= 0;
+    cond = #SETcc(b);
+    b = i < BLOCK_DATA_SIZE_QWORDS;
+    ctmp = #SETcc(b);
+    cond &= ctmp;
+
+    addr1 = #LEA(block_data + 8 * i);
+    addr2 = #LEA(in_data + 8 * ((i + BLOCK_DATA_SIZE_QWORDS) % BLOCK_DATA_SIZE_QWORDS));
+    cond_obv_cpy_u64()
+  }
+}
+
+fn write_accessor_partial(
+  reg u64 block_data,
+  reg u64 in_data_start in_data_len,
+  reg u64 in_data,
+  reg u64 out_data
+)
+{
+  reg u64 bound source_index;
+  reg u8 cond ctmp;
+  reg bool b;
+  inline int i;
+
+  bound = #LEA(in_data_start + in_data_len);
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS * 8
+  {
+    b = i >= in_data_start;
+    cond = #SETcc(b);
+    b = i < bound;
+    ctmp = #SETcc(b);
+    cond &= ctmp;
+
+    source_index = i + in_data_len;
+    // check how to do modulo
+  }
+}

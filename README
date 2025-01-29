@@ -1,0 +1,44 @@
+## Tree path
+Tree path implementation seems to be completed. All tests pass
+
+Some considerations:
+- As in Jasmin is not possible to allocate memory dynamically, the size of the `tree_path` has to be fixed in the parameters.
+
+Tested functions:
+- `tree_path_update`
+  - `coords_for_val`
+  - `parent`
+  - `node_val`
+  - `level`
+
+## Bucket
+There is an attempt of `bucket_store_create` in which allocates memory directly from the Jasmin code. I believe it will be useful for `oram` module implementation.
+
+As `num_levels` and `size_bytes` are fixed, we don't need them. But this is going to cause a different behavior on memory. C implementation occupies more memory.
+
+Current implementation use the same structure as in C (take into account both parameters when reading from memory).
+
+Tested functions:
+- `bucket_store_clear`
+- `bucket_store_read_bucket_blocks`
+- `bucket_store_write_bucket_blocks`
+
+## Stash
+Code is compiling but there are some functions that haven't been tested and they are a bit complex.
+
+Tested functions:
+- `stash_add_path_bucket`: something is happening with this function. If the whole test suite is executed then it will fail, otherwise it passes all tests.
+- `stash_scan_overflow_for_target`
+  - `stash_overflow_ub`
+  - `first_block_in_bucket_for_level`
+  - `cond_swap_blocks`
+  - `cond_copy_block`
+    - `cond_obv_copy_u64`
+    - `cond_obv_swap_u64` not oblivious yet
+
+## Test Suite
+> **Note:**
+> Remember to change `TREE_LEVELS` parameter in `params.jinc` to correctly run the test suite.
+
+## Wish list
+- Change `#CMOVcc` instructions

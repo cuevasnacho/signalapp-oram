@@ -1,0 +1,136 @@
+require "tree_path.jinc"
+
+// block
+// u64 id;
+// u64 position;
+// u64 data[BLOCK_DATA_SIZE_QWORDS];
+
+// bucket_store
+// size_t num_levels;
+// size_t size_bytes;
+// u8 *data;
+inline
+fn bucket_store_clear(
+  reg u64 bucket_store
+)
+{
+  reg u64 i bound data;
+  i = 0;
+  data = [bucket_store + 16];
+  bound = ((1 << TREE_LEVELS) - 1) * ENCRYPTED_BUCKET_SIZE;
+  while (i < bound)
+  {
+    (u8)[data + i] = -1;
+    i += 1;
+  }
+}
+
+inline
+fn bucket_store_root() -> reg u64
+{
+  reg u64 r;
+  r = #SHL(1, TREE_LEVELS - 1);
+  r -= 1;
+  return r;
+}
+
+fn bucket_store_read_bucket_blocks(
+  reg u64 bucket_store,
+  reg u64 bucket_id,
+  reg u64 bucket_data
+)
+{
+  reg u64 offset encrypted_bucket data;
+  reg u8 t8;
+  inline int i;
+
+  data = (64u)[bucket_store + 16];
+  offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
+  encrypted_bucket = data + offset;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET * 8
+  {
+    t8 = (u8)[encrypted_bucket + i];
+    (u8)[bucket_data + i] = t8;
+  }
+}
+
+fn bucket_store_write_bucket_blocks(
+  reg u64 bucket_store,
+  reg u64 bucket_id,
+  reg u64 bucket_data
+)
+{
+  reg u64 offset encrypted_bucket data;
+  reg u8 t8;
+  inline int i;
+
+  data = (64u)[bucket_store + 16];
+  offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
+  encrypted_bucket = data + offset;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET * 8
+  {
+    t8 = (u8)[bucket_data + i];
+    (u8)[encrypted_bucket + i] = t8;
+  }
+}
+
+
+// ------ using stacks --------
+
+// block
+// u64 id;
+// u64 position;
+// u64 data[BLOCK_DATA_SIZE_QWORDS];
+
+// bucket_store
+// u8 *data;
+
+// Create a path ORAM bucket store with capacity for a tree with `TREE_LEVELS` levels,
+// i.e. 2^TREE_LEVELS - 1 tree nodes and 2^(TREE_LEVELS - 1) leaf nodes/pathORAM positions.
+fn bucket_store_create(reg ptr u8[BUCKET_STORE_SIZE] b) -> reg ptr u8[BUCKET_STORE_SIZE]
+{
+  stack u8[BUCKET_STORE_SIZE] b_s;
+  inline int i;
+
+  b = b_s;
+  for i = 0 to BUCKET_STORE_SIZE
+  {
+    b[i] = -1;
+  }
+  return b;
+}
+
+inline
+fn i_bucket_store_clear(
+  reg ptr u8[BUCKET_STORE_SIZE] bucket_store
+) -> reg ptr u8[BUCKET_STORE_SIZE]
+{
+  inline int i;
+  for i = 0 to BUCKET_STORE_SIZE
+  {
+    bucket_store[i] = -1;
+  }
+  return bucket_store;
+}
+
+inline
+fn i_bucket_store_read_bucket_blocks(
+  reg ptr u8[BUCKET_STORE_SIZE] bucket_store,
+  reg u64 bucket_id,
+  reg ptr u64[BUCKET_DATA_SIZE] bucket_data
+) -> reg ptr u64[BUCKET_DATA_SIZE]
+{
+  bucket_data[0:BUCKET_DATA_SIZE] = bucket_store[bucket_id * ENCRYPTED_BUCKET_SIZE:BUCKET_DATA_SIZE * 8];
+  return bucket_data;
+}
+
+inline
+fn i_bucket_store_write_bucket_blocks(
+  reg ptr u8[BUCKET_STORE_SIZE] bucket_store,
+  reg u64 bucket_id,
+  reg ptr u64[BUCKET_DATA_SIZE] bucket_data
+) -> reg ptr u8[BUCKET_STORE_SIZE]
+{
+  bucket_store[bucket_id * ENCRYPTED_BUCKET_SIZE:BUCKET_DATA_SIZE * 8] = bucket_data[0:BUCKET_DATA_SIZE];
+  return bucket_store;
+}

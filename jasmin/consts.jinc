@@ -1,0 +1,2 @@
+param int BLOCK_TYPE_OVERFLOW = 0;
+param int BLOCK_TYPE_PATH = 1;

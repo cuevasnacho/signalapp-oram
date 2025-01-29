@@ -1,0 +1,49 @@
+require "stash.jinc"
+
+export
+fn stash_add_path_bucket_jazz(
+  reg u64 stash bucket_store,
+  reg u64 bucket_id target_block_id,
+  reg u64 target
+)
+{
+  stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target);
+}
+
+export
+fn stash_scan_overflow_for_target_jazz(
+  reg u64 stash,
+  reg u64 target_block_id,
+  reg u64 target
+)
+{
+  stash_scan_overflow_for_target(stash, target_block_id, target);
+}
+
+export
+fn cond_copy_block_jazz(
+  reg u8 cond,
+  reg u64 dst src
+)
+{
+  cond_copy_block(cond, dst, src);
+}
+
+export
+fn cond_swap_blocks_jazz(
+  reg u8 b,
+  reg u64 b1 b2
+)
+{
+  cond_swap_blocks(b, b1, b2);
+}
+
+export
+fn bitonic_sort_jazz(
+  reg u64 blocks block_level_assignments,
+  reg u64 lb ub,
+  reg u8 direction
+)
+{
+  bitonic_sort(blocks, block_level_assignments);
+}

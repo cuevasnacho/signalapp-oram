@@ -1,0 +1,8 @@
+require "tree_path.jinc"
+
+export
+fn tree_path_update_jazz(reg u64 tp leaf)
+{
+  tp = #LEA(tp + 8);
+  tree_path_update(tp, leaf);
+}

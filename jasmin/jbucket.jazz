@@ -1,0 +1,29 @@
+require "bucket.jinc"
+
+export
+fn bucket_store_clear_jazz(
+  reg u64 bucket_store
+)
+{
+  bucket_store_clear(bucket_store);
+}
+
+export
+fn bucket_store_read_bucket_blocks_jazz(
+  reg u64 bucket_store,
+  reg u64 bucket_id,
+  reg u64 bucket_data
+)
+{
+  bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_data);
+}
+
+export
+fn bucket_store_write_bucket_blocks_jazz(
+  reg u64 bucket_store,
+  reg u64 bucket_id,
+  reg u64 bucket_data
+)
+{
+  bucket_store_write_bucket_blocks(bucket_store, bucket_id, bucket_data);
+}

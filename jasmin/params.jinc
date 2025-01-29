@@ -1,0 +1,62 @@
+// tree_path.jinc
+param int TREE_LEVELS = 10;
+
+// bucket.jinc
+param int ENCRYPTED_BUCKET_SIZE = 4096;
+param int DECRYPTED_BUCKET_SIZE = ENCRYPTED_BUCKET_SIZE;
+param int BLOCKS_PER_BUCKET = 3;
+param int DECRYPTED_BLOCK_SIZE = (DECRYPTED_BUCKET_SIZE / BLOCKS_PER_BUCKET);
+param int DECRYPTED_BLOCK_SIZE_QWORDS = (DECRYPTED_BLOCK_SIZE / 8);
+param int UNROUNDED_BLOCK_DATA_SIZE_BYTES = (DECRYPTED_BLOCK_SIZE - 16);
+param int BLOCK_DATA_SIZE_QWORDS = (UNROUNDED_BLOCK_DATA_SIZE_BYTES / 8);
+param int BLOCK_DATA_SIZE_BYTES = (BLOCK_DATA_SIZE_QWORDS * 8);
+param int EMPTY_BLOCK_ID = -1;
+
+//param int NUM_BUCKETS = (1 << TREE_LEVELS) - 1;
+param int NUM_BUCKETS = 1023;
+param int BUCKET_DATA_SIZE = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS;
+param int BUCKET_STORE_SIZE = NUM_BUCKETS * ENCRYPTED_BUCKET_SIZE;
+
+// stash.jinc
+param int PATH_LENGTH = TREE_LEVELS;
+param int OVERFLOW_SIZE = 100;
+param int NUM_PATH_BLOCKS = BLOCKS_PER_BUCKET * PATH_LENGTH;
+param int NUM_BLOCKS = OVERFLOW_SIZE + NUM_PATH_BLOCKS;
+param int STASH_BLOCKS_SIZE = DECRYPTED_BLOCK_SIZE_QWORDS * NUM_BLOCKS;
+
+// block* blocks;
+// block* path_blocks;
+// block* overflow_blocks;
+// # here there are two variables we parametrize in jasmin
+// size_t overflow_capacity;
+// u64* bucket_occupancy;
+// u64* bucket_assignments;
+param int PATH_BLOCKS_ADDR = 1;
+param int OVERFLOW_BLOCKS_ADDR = PATH_BLOCKS_ADDR + 1;
+param int OVERFLOW_CAPACITY_ADDR = OVERFLOW_BLOCKS_ADDR + 3;
+param int BUCKET_OCCUPANCY_ADDR = OVERFLOW_CAPACITY_ADDR + 1;
+param int BUCKET_ASSIGNMENT_ADDR = BUCKET_OCCUPANCY_ADDR + 1;
+param int STASH_SIZE = STASH_BLOCKS_SIZE + 3 + PATH_LENGTH + NUM_BLOCKS;
+param int STASH_SIZE_BYTES = STASH_SIZE * 8;
+
+param int ARR_SIZE = 20;
+
+// path_oram.jinc
+
+// bucket_store *bucket_store;
+// position_map *position_map;
+// stash *stash;
+// size_t allocated_ub; // One above largest allocated block_id
+// size_t capacity_blocks;
+// # num_levels is fixed in a parameter
+// tree_path *path;
+// # here there are two more variables we are not needed
+param int POSITION_MAP_ADDR = 1;
+param int STASH_ADDR = POSITION_MAP_ADDR + 1;
+param int ALLOCATED_UB_ADDR = STASH_ADDR + 1;
+param int CAPACITY_BLOCKS_ADDR = ALLOCATED_UB_ADDR + 1;
+param int PATH_ADDR = CAPACITY_BLOCKS_ADDR + 2;
+
+// position_map.jinc
+param int POSITION_MAP_SIZE = 1<<10;
+param int SCAN_THRESHOLD = 1<<14;

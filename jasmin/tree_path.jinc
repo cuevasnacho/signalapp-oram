@@ -1,0 +1,175 @@
+require "params.jinc"
+
+// `tree_path` creates map from the integers from 0 to 2^L - 1 to the
+// nodes of a binary tree of height L by performing an in-order traversal.
+// Note that with this
+//  * even numbers are the leaves. We call this level 0.
+//  * numbers that are 1 mod 4 are on the next level - level 1
+//  * numbers that are 3 mod 8 are on level 2
+//  * and so on... numbers that are (2^k - 1) mod 2^(k+1) are on level k
+//  * the root is the single node at level L-1: 2^(L-1)-1
+//
+// Based on that characterisation we will refer to 2^(k+1) as the `level_modulus`
+// and we will refer to (2^k - 1) as the `level_residue` for level k. All items on
+// level k are congruent to `level_residue` mod `level_modulus`.
+//
+// In path ORAM, memory blocks are assigned to leaves, i.e. even numbers, and
+// a `tree_path` is a path to root from this leaf.
+
+// We have two views of a node in a binary tree: in-order numbering or coordinates.
+// We can represent the location of a node in the tree by giving the level (leaves
+// are level 0) and the offset in that level.
+
+inline
+fn level(
+  reg u64 n
+) -> reg u64
+{
+  reg u64 v;
+  v = !n;
+  v = #TZCNT(n);
+  return v;
+}
+
+inline
+fn coords_for_val(
+  reg u64 val
+) -> reg u64, reg u64
+{
+  reg u64 level lmod lres;
+  level = level(val);
+  lmod = 1;
+  lmod = #SHL(lmod, level);
+  lmod = #SHL(lmod, 1);
+  lres = lmod;
+  lres >>= 1;
+  lres = lres - 1;
+  val = val;
+  val -= lres;
+  val = val / lmod;
+  return level, val;
+}
+
+inline
+fn parent(
+  reg u64 level offset
+) -> reg u64, reg u64
+{
+  reg u64 p_level p_offset;
+  p_level = level + 1;
+  p_offset = offset >> 1;
+  return p_level, p_offset;
+}
+
+inline
+fn node_val(
+  reg u64 level offset
+) -> reg u64
+{
+  reg u64 lmod lres;
+  lmod = 1;
+  lmod = #SHL(lmod, level);
+  lmod <<= 1;
+  lres = lmod;
+  lres >>= 1;
+  lres = lres - 1;
+  lmod *= offset;
+  lmod += lres;
+  return lmod;
+}
+
+inline
+fn tree_path_update(
+  reg u64 t,
+  reg u64 leaf
+)
+{
+  reg u64 root_level root level offset;
+  root_level = TREE_LEVELS - 1;
+  root = ((64u)1 << root_level) - 1;
+
+  level, offset = coords_for_val(leaf);
+  (u64)[t] = leaf;
+  while (level < root_level) {
+    level, offset = parent(level, offset);
+    (u64)[t + 8 * level] = node_val(level, offset);
+  }
+}
+
+inline
+fn tree_path_num_nodes(
+  reg u64 num_levels
+) -> reg u64
+{
+  reg u64 r;
+  r = ((64u)1 << num_levels) - 1;
+  return r;
+}
+
+inline
+fn tree_path_lower_bound(
+  reg u64 val
+) -> reg u64
+{
+  reg u64 l step;
+  l = level(val);
+  step = ((64u)1 << l) - 1;
+  step = #LEA(val - step);
+  return step;
+}
+
+inline
+fn tree_path_upper_bound(
+  reg u64 val
+) -> reg u64
+{
+  reg u64 l step;
+  l = level(val);
+  step = ((64u)1 << l) - 1;
+  step += val;
+  return step;
+}
+
+inline
+fn tree_path_level(
+  reg u64 val
+) -> reg u64
+{
+  reg u64 l;
+  l = level(val);
+  return l;
+}
+
+
+// ------ using stacks --------
+
+fn tree_path_create(
+  reg u64 leaf
+) -> reg ptr u64[TREE_LEVELS]
+{
+  reg ptr u64[TREE_LEVELS] t;
+  stack u64[TREE_LEVELS] t_s;
+
+  t = t_s;
+  t = i_tree_path_update(t, leaf);
+  return t;
+}
+
+inline
+fn i_tree_path_update(
+  reg ptr u64[TREE_LEVELS] t,
+  reg u64 leaf
+) -> reg ptr u64[TREE_LEVELS]
+{
+  reg u64 root_level root level offset;
+  root_level = TREE_LEVELS - 1;
+  root = ((64u)1 << root_level) - 1;
+
+  level, offset = coords_for_val(leaf);
+  t[0] = leaf;
+  while (level < root_level) {
+    level, offset = parent(level, offset);
+    t[level] = node_val(level, offset);
+  }
+  return t;
+}

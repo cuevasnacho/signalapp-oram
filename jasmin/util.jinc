@@ -1,0 +1,73 @@
+inline
+fn floor_log2(
+  reg u64 n
+) -> reg u64
+{
+  reg u64 result;
+  result = 0;
+  while (n > 1) {
+    n = #LEA(n >> 1);
+    result = #LEA(result + 1);
+  }
+  return result;
+}
+
+// It compiles exactly as C version
+inline
+fn ternary(
+  reg u8 cond,
+  reg u64 a b
+) -> reg u64
+{
+  reg u64 r ext_cond;
+  a = a; b = b;
+  ext_cond = (64u)cond;
+  r = #LEA(ext_cond - 1);
+  ext_cond = -ext_cond;
+  b &= r;
+  a &= ext_cond;
+  a |= b;
+  return a;
+}
+
+inline
+fn cond_obv_copy_u64(
+  reg u8 cond,
+  reg u64 dest src
+)
+{
+  reg u64 a b tmp;
+  a = (64u)[dest];
+  b = (64u)[src];
+  tmp = ternary(cond, b, a);
+  (u64)[dest] = tmp;
+}
+
+inline
+fn cond_obv_swap_u64(
+  reg u8 cond,
+  reg u64 a b
+)
+{
+  reg u64 ra rb tmp;
+  ra = (64u)[a];
+  rb = (64u)[b];
+  tmp = ternary(cond, rb, ra);
+  (u64)[a] = tmp;
+  tmp = ternary(cond, ra, rb);
+  (u64)[b] = tmp;
+}
+
+inline
+fn first_pow2_leq(
+  reg u64 n
+) -> reg u64
+{
+  reg u64 msb x;
+  msb = #LZCNT(n);
+  x = 63;
+  msb = x - msb;
+  x = 1;
+  msb = #SHL(x, msb);
+  return msb;
+}

@@ -1,0 +1,43 @@
+require "params.jinc"
+
+// scan implementation
+fn scan_position_map_get(
+  reg u64 scan_position_map,
+  reg u64 block_id,
+  reg u64 position
+)
+{
+  reg u64 position_map;
+  reg bool cond;
+  inline int i;
+
+  position_map = [scan_position_map + 8];
+  // linear scan of array so that every access looks the same.
+  for i = 0 to POSITION_MAP_SIZE
+  {
+    cond = (64u)i == block_id;
+    cond_obv_cpy_u64(cond, position, position_map);
+    position_map = #LEA(position_map + 8);
+  }
+}
+
+fn scan_position_map_set(
+  reg u64 scan_position_map,
+  reg u64 block_id position,
+  reg u64 prev_position
+)
+{
+  reg u64 position_map;
+  reg bool cond;
+  inline int i;
+
+  [prev_position] = position; // TODO: handle null pointer
+  position_map = [scan_position_map + 8];
+  // linear scan of array so that every access looks the same.
+  for i = 0 to POSITION_MAP_SIZE
+  {
+    cond = (64u)i == block_id;
+    cond_obv_cpy_u64(cond, prev_position, position_map);
+    position_map = #LEA(position_map + 8);
+  }
+}
