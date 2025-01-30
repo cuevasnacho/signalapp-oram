@@ -6,16 +6,14 @@ Some considerations:
 
 Tested functions:
 - `tree_path_update`
-  - `coords_for_val`
-  - `parent`
-  - `node_val`
-  - `level`
+- `level`
+- `node_val`
+- `tree_path_num_nodes`
+- `tree_path_lower_bound`
+- `tree_path_upper_bound`
+- `tree_path_level`
 
 ## Bucket
-There is an attempt of `bucket_store_create` in which allocates memory directly from the Jasmin code. I believe it will be useful for `oram` module implementation.
-
-As `num_levels` and `size_bytes` are fixed, we don't need them. But this is going to cause a different behavior on memory. C implementation occupies more memory.
-
 Current implementation use the same structure as in C (take into account both parameters when reading from memory).
 
 Tested functions:
