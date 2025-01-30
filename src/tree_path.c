@@ -5,10 +5,8 @@
 #include <stdlib.h>
 #include <strings.h>
 
+#include "../include/util.h"
 #include "../include/tree_path.h"
-#include "../include/tests.h"
-
-#define err_SUCCESS 0
 
 // `tree_path` creates map from the integers from 0 to 2^L - 1 to the
 // nodes of a binary tree of height L by performing an in-order traversal.
@@ -137,25 +135,47 @@ size_t tree_path_level(u64 val) {
     return level(val);
 }
 
+#ifdef IS_TEST
+#include <stdio.h>
+#include "../include/util.h"
+#include "../include/tests.h"
+
+// jasmin functions
+size_t level_jazz(u64 n);
+u64 node_val_jazz(size_t level, size_t offset);
+size_t tree_path_num_nodes_jazz(size_t num_levels);
+u64 tree_path_lower_bound_jazz(u64 val);
+u64 tree_path_upper_bound_jazz(u64 val);
+size_t tree_path_level_jazz(u64 val);
+
 int test_level()
-{
+{   
     TEST_ASSERT(level(1040678) == 0);
+    TEST_ASSERT(level_jazz(1040678) == 0);
 
     TEST_ASSERT(level(1) == 1);
+    TEST_ASSERT(level_jazz(1) == 1);
     TEST_ASSERT(level(10009) == 1);
+    TEST_ASSERT(level_jazz(10009) == 1);
 
     TEST_ASSERT(level(3) == 2);
+    TEST_ASSERT(level_jazz(3) == 2);
     TEST_ASSERT(level(1003) == 2);
+    TEST_ASSERT(level_jazz(1003) == 2);
 
     TEST_ASSERT(level(7) == 3);
+    TEST_ASSERT(level_jazz(7) == 3);
     TEST_ASSERT(level(10000007) == 3);
+    TEST_ASSERT(level_jazz(10000007) == 3);
 
     TEST_ASSERT(level(100000000255) == 8);
+    TEST_ASSERT(level_jazz(100000000255) == 8);
 
     for (size_t l = 0; l < 64; ++l)
     {
         u64 pow_2 = ((size_t)1) << l;
         TEST_ASSERT(level(pow_2 - 1) == l);
+        TEST_ASSERT(level_jazz(pow_2 - 1) == l);
     }
 
     return err_SUCCESS;
@@ -196,10 +216,14 @@ int test_coords_from_val()
 int test_val_from_coords()
 {
     u64 val = node_val((tree_coords){.level = 0, .offset = 0});
+    u64 val_jazz = node_val_jazz(0, 0);
     TEST_ASSERT(val == 0);
+    TEST_ASSERT(val_jazz == 0);
 
     val = node_val((tree_coords){.level = 2, .offset = 1});
+    val_jazz = node_val_jazz(2, 1);
     TEST_ASSERT(val == 11);
+    TEST_ASSERT(val_jazz == 11);
     return 0;
 }
 
@@ -209,7 +233,9 @@ int test_val_coords_roundtrip()
     {
         tree_coords coords = coords_for_val(i);
         u64 val = node_val(coords);
+        u64 val_jazz = node_val_jazz(coords.level, coords.offset);
         TEST_ASSERT(val == i);
+        TEST_ASSERT(val_jazz == i);
     }
     return err_SUCCESS;
 }
@@ -218,6 +244,11 @@ int test_descendent_range()
 {
     u64 lb = tree_path_lower_bound(11);
     u64 ub = tree_path_upper_bound(11);
+    TEST_ASSERT(lb == 8);
+    TEST_ASSERT(ub == 14);
+
+    lb = tree_path_lower_bound_jazz(11);
+    ub = tree_path_upper_bound_jazz(11);
     TEST_ASSERT(lb == 8);
     TEST_ASSERT(ub == 14);
     return err_SUCCESS;
@@ -231,3 +262,4 @@ void private_tree_path_tests()
     RUN_TEST(test_val_coords_roundtrip());
     RUN_TEST(test_descendent_range());
 }
+#endif

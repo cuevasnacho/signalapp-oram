@@ -4,12 +4,10 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "../include/tree_path.h"
+#include "../include/util.h"
 #include "../include/tests.h"
-
-#define err_SUCCESS 0
 
 int test_path(u64 leaf, u64 root, size_t expected_len, const u64 expected_path[expected_len])
 {
@@ -75,9 +73,7 @@ void public_tree_path_tests()
 
 int main()
 {
-
     private_tree_path_tests();
     public_tree_path_tests();
-
     return 0;
 }

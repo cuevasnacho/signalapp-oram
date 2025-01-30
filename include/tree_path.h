@@ -21,7 +21,7 @@ u64 tree_path_lower_bound(u64 val);
 u64 tree_path_upper_bound(u64 val);
 size_t tree_path_level(u64 val);
 
-// jazz functions
+// jasmin functions
 tree_path *tree_path_create_jazz(u64 leaf, u64 root);
 void tree_path_update_jazz(tree_path *tp, u64 leaf);
 
