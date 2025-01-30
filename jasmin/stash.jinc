@@ -8,7 +8,7 @@ fn stash_path_blocks(
 ) -> reg u64
 {
   reg u64 p;
-  p = [stash + 8 * PATH_BLOCKS_ADDR];
+  p = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
   return p;
 }
 
@@ -18,7 +18,7 @@ fn stash_path_overflow_blocks(
 ) -> reg u64
 {
   reg u64 p;
-  p = [stash + 8 * OVERFLOW_BLOCKS_ADDR];
+  p = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
   return p;
 }
 
@@ -28,17 +28,16 @@ fn stash_overflow_ub(
 ) -> reg u64
 {
   reg u64 i j overflow_blocks bid offset;
-  reg bool cond;
 
-  i = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
-  overflow_blocks = [stash + 8 * OVERFLOW_BLOCKS_ADDR];
+  i = (64u)[stash + 8 * OVERFLOW_CAPACITY_ADDR];
+  overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
   offset = i;
   offset *= 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
   overflow_blocks += offset;
   while (i > 0) {
-    overflow_blocks -= 8 * DECRYPTED_BLOCK_SIZE_QWORDS; // <- (i - 1)
-    bid = [overflow_blocks];
-    if bid != EMPTY_BLOCK_ID { j = i; i = 1; }
+    overflow_blocks -= 8 * DECRYPTED_BLOCK_SIZE_QWORDS; // (i - 1)
+    bid = (64u)[overflow_blocks];
+    if bid != EMPTY_BLOCK_ID { j = i; i = 1; }  // TODO: avoid jump
     else { j = 0; }
     i -= 1;
   }
@@ -55,9 +54,9 @@ fn stash_num_overflow_blocks(
   reg bool b;
   r = 0; i = 0;
   overflow_blocks = stash_path_overflow_blocks(stash);
-  overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
+  overflow_capacity = (64u)[stash + 8 * OVERFLOW_CAPACITY_ADDR];
   while (i < overflow_capacity) {
-    bid = [overflow_blocks + 8 * (i + BLOCK_DATA_SIZE_QWORDS)];
+    bid = (64u)[overflow_blocks + 8 * (i + BLOCK_DATA_SIZE_QWORDS)];
     b = bid != EMPTY_BLOCK_ID;
     cond = #SETcc(b);
     r += (64u)cond;
@@ -72,7 +71,7 @@ fn first_block_in_bucket_for_level(
 ) -> reg u64
 {
   reg u64 p offset;
-  p = [stash + 8 * PATH_BLOCKS_ADDR];
+  p = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
   offset = level * BLOCKS_PER_BUCKET;
   offset *= DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   p = #LEA(p + offset);
@@ -125,7 +124,7 @@ fn stash_add_path_bucket(
   bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_blocks);
   for i = 0 to BLOCKS_PER_BUCKET
   {
-    bid = [bucket_blocks];
+    bid = (64u)[bucket_blocks];
     cond = bid == target_block_id;
     c = #SETcc(cond);
     cond_swap_blocks(c, target, bucket_blocks);
@@ -146,11 +145,11 @@ fn stash_scan_overflow_for_target(
   reg bool cond;
 
   ub = stash_overflow_ub(stash);
-  overflow_blocks = [stash + 8 * OVERFLOW_BLOCKS_ADDR];
+  overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
   i = 0;
   while (i < ub)
   {
-    bid = [overflow_blocks];
+    bid = (64u)[overflow_blocks];
     cond = bid == target_block_id;
     c = #SETcc(cond);
     cond_swap_blocks(c, target, overflow_blocks);
@@ -208,19 +207,19 @@ fn stash_assign_block_to_bucket(
   r1 = BLOCKS_PER_BUCKET * PATH_LENGTH + index;
   assignment_index = #CMOVcc(b, r1, index);
 
-  path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
-  block = [path_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS * assignment_index];
-  bid = [block];
-  bpos = [block + 8];
+  path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
+  block = (64u)[path_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS * assignment_index];
+  bid = (64u)[block];
+  bpos = (64u)[block + 8];
 
-  bucket_occupancy = [stash + 8 * BUCKET_OCCUPANCY_ADDR];
+  bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
 
   c1 = 0; // is_assigned
   lvl = 0;
   while (lvl < max_level)
   {
-    r2 = [bucket_occupancy + 8 * lvl];
-    bucket_id = [path + 8 + 8 * lvl];
+    r2 = (64u)[bucket_occupancy + 8 * lvl];
+    bucket_id = (64u)[path + 8 + 8 * lvl];
 
     c1 = !c1;
     // is_valid
@@ -247,10 +246,10 @@ fn stash_assign_block_to_bucket(
     // increment this, it will only get saved if `b` is true.
     r1 = r2 + 1;
     r1 = #CMOVcc(b, r1, r2);
-    [stash + 8 * (BUCKET_OCCUPANCY_ADDR + lvl)] = r1;
-    bucket_assignment = [stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)];
+    (u64)[stash + 8 * (BUCKET_OCCUPANCY_ADDR + lvl)] = r1;
+    bucket_assignment = (64u)[stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)];
     r1 = #CMOVcc(b, lvl, bucket_assignment);
-    [stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)] = r1;
+    (u64)[stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)] = r1;
 
     lvl += 1;
   }
@@ -271,9 +270,9 @@ fn stash_place_empty_blocks(
   reg bool b;
   inline int j;
 
-  blocks = [stash];
-  bucket_occupancy = [stash + 8 * BUCKET_OCCUPANCY_ADDR];
-  bucket_assignment = [stash + 8 * BUCKET_ASSIGNMENT_ADDR];
+  blocks = (64u)[stash];
+  bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
+  bucket_assignment = (64u)[stash + 8 * BUCKET_ASSIGNMENT_ADDR];
   curr_bucket = 0;
   i = 0;
   while (i < NUM_BLOCKS)
@@ -281,7 +280,7 @@ fn stash_place_empty_blocks(
     c1 = 0; // found_curr_bucket
     for j = 0 to PATH_LENGTH
     {
-      tmp_bo = [bucket_occupancy + 8 * j];
+      tmp_bo = (64u)[bucket_occupancy + 8 * j];
       c1 = !c1;
       // bucket_has_room
       b = tmp_bo != BLOCKS_PER_BUCKET;
@@ -292,8 +291,8 @@ fn stash_place_empty_blocks(
       tmp_r = (64u)j;
       curr_bucket = #CMOVcc(b, curr_bucket, tmp_r);
     }
-    tmp_bo = [bucket_occupancy + 8 * curr_bucket];
-    bid = [blocks + 8 * (DECRYPTED_BLOCK_SIZE_QWORDS + i)];
+    tmp_bo = (64u)[bucket_occupancy + 8 * curr_bucket];
+    bid = (64u)[blocks + 8 * (DECRYPTED_BLOCK_SIZE_QWORDS + i)];
     // cond_place_in_bucket
     b = tmp_bo < BLOCKS_PER_BUCKET;
     c1 = #SETcc(b);
@@ -304,10 +303,10 @@ fn stash_place_empty_blocks(
 
     tmp_r = #LEA(tmp_bo + 1);
     tmp_r = #CMOVcc(b, tmp_r, tmp_bo);
-    [bucket_occupancy + 8 * curr_bucket] = tmp_r;
-    tmp_bo = [bucket_assignment + 8 * i];
+    (u64)[bucket_occupancy + 8 * curr_bucket] = tmp_r;
+    tmp_bo = (64u)[bucket_assignment + 8 * i];
     tmp_r = #CMOVcc(b, curr_bucket, tmp_bo);
-    [bucket_assignment + 8 * i] = tmp_r;
+    (u64)[bucket_assignment + 8 * i] = tmp_r;
     i += 1;
   }
   // at the end, every bucket should be full
@@ -326,10 +325,10 @@ fn stash_assign_buckets(
   inline int i lvl;
 
   // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
-  bucket_assignment = [stash + 8 * BUCKET_ASSIGNMENT_ADDR];
-  for i = 0 to NUM_BLOCKS { [bucket_assignment + 8 * i] = (64u)-1; }
-  bucket_occupancy = [stash + 8 * BUCKET_OCCUPANCY_ADDR];
-  for i = 0 to PATH_LENGTH { [bucket_occupancy + 8 * i] = (64u)0; }
+  bucket_assignment = (64u)[stash + 8 * BUCKET_ASSIGNMENT_ADDR];
+  for i = 0 to NUM_BLOCKS { (u64)[bucket_assignment + 8 * i] = (64u)-1; }
+  bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
+  for i = 0 to PATH_LENGTH { (u64)[bucket_occupancy + 8 * i] = (64u)0; }
 
   // assign blocks in path to buckets first
   for lvl = 0 to PATH_LENGTH
@@ -362,16 +361,16 @@ fn comp_blocks(
   reg u8 r s;
   reg bool b;
 
-  bla1 = [block_level_assignments + 8 * idx1];
-  bla2 = [block_level_assignments + 8 * idx2];
+  bla1 = (64u)[block_level_assignments + 8 * idx1];
+  bla2 = (64u)[block_level_assignments + 8 * idx2];
   offset = 8 * idx1;
   offset *= DECRYPTED_BLOCK_SIZE_QWORDS;
   offset += 8;
-  b1 = [blocks + offset];
+  b1 = (64u)[blocks + offset];
   offset = 8 * idx2;
   offset *= DECRYPTED_BLOCK_SIZE_QWORDS;
   offset += 8;
-  b2 = [blocks + offset];
+  b2 = (64u)[blocks + offset];
 
   b = b1 > b2;
   r = #SETcc(b);
@@ -384,7 +383,7 @@ fn comp_blocks(
   return r;
 }
 
-fn bitonic_sort(
+fn bitonic_sort(  // TODO: only working for length = 2^k
   reg u64 blocks block_level_assignments
 )
 {
@@ -446,7 +445,7 @@ fn bitonic_sort(
 
 fn stash_create(
   reg ptr u64[STASH_SIZE] stash
-) -> reg ptr u64[STASH_SIZE] stash
+) -> reg ptr u64[STASH_SIZE]
 {
   stack u64[STASH_SIZE] stash_s;
   inline int i;
@@ -497,7 +496,7 @@ fn i_stash_num_overflow_blocks(
   overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
   while (i < overflow_capacity) {
     bid = [overflow_blocks + 8 * (i + BLOCK_DATA_SIZE_QWORDS)];
-    b != EMPTY_BLOCK_ID;
+    b = bid != EMPTY_BLOCK_ID;
     cond = #SETcc(b);
     r += (64u)cond;
   }
