@@ -38,7 +38,7 @@ Tested functions:
 
 ## Test Suite
 > **Note:**
-> Remember to change `TREE_LEVELS` parameter in `params.jinc` to correctly run the test suite.
+> Remember to change `PATH_LENGTH` parameter in `params.jinc` to correctly run the test suite.
 
 ## Wish list
 - Change `#CMOVcc` instructions

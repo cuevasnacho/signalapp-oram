@@ -86,7 +86,7 @@ fn tree_path_update(
 )
 {
   reg u64 root_level root level offset;
-  root_level = TREE_LEVELS - 1;
+  root_level = PATH_LENGTH - 1;
   root = ((64u)1 << root_level) - 1;
 
   level, offset = coords_for_val(leaf);
@@ -152,12 +152,12 @@ fn tree_path_level(
 
 inline
 fn i_tree_path_update(
-  reg ptr u64[TREE_LEVELS] t,
+  reg ptr u64[PATH_LENGTH] t,
   reg u64 leaf
-) -> reg ptr u64[TREE_LEVELS]
+) -> reg ptr u64[PATH_LENGTH]
 {
   reg u64 root_level root level offset;
-  root_level = TREE_LEVELS - 1;
+  root_level = PATH_LENGTH - 1;
   root = ((64u)1 << root_level) - 1;
 
   level, offset = coords_for_val(leaf);
@@ -170,11 +170,11 @@ fn i_tree_path_update(
 }
 
 fn tree_path_create(
-  reg ptr u64[TREE_LEVELS] t,
+  reg ptr u64[PATH_LENGTH] t,
   reg u64 leaf
-) -> reg ptr u64[TREE_LEVELS]
+) -> reg ptr u64[PATH_LENGTH]
 {
-  stack u64[TREE_LEVELS] t_s;
+  stack u64[PATH_LENGTH] t_s;
 
   t = t_s;
   t = i_tree_path_update(t, leaf);

@@ -17,7 +17,7 @@ fn bucket_store_clear(
   reg u64 i bound data;
   i = 0;
   data = (64u)[bucket_store + 16];
-  bound = ((1 << TREE_LEVELS) - 1) * ENCRYPTED_BUCKET_SIZE;
+  bound = ((1 << PATH_LENGTH) - 1) * ENCRYPTED_BUCKET_SIZE;
   while (i < bound)
   {
     (u8)[data + i] = -1;
@@ -29,7 +29,7 @@ inline
 fn bucket_store_root() -> reg u64
 {
   reg u64 r;
-  r = #SHL(1, TREE_LEVELS - 1);
+  r = #SHL(1, PATH_LENGTH - 1);
   r -= 1;
   return r;
 }
@@ -85,8 +85,8 @@ fn bucket_store_write_bucket_blocks(
 // bucket_store
 // u8 *data;
 
-// Create a path ORAM bucket store with capacity for a tree with `TREE_LEVELS` levels,
-// i.e. 2^TREE_LEVELS - 1 tree nodes and 2^(TREE_LEVELS - 1) leaf nodes/pathORAM positions.
+// Create a path ORAM bucket store with capacity for a tree with `PATH_LENGTH` levels,
+// i.e. 2^PATH_LENGTH - 1 tree nodes and 2^(PATH_LENGTH - 1) leaf nodes/pathORAM positions.
 fn bucket_store_create(reg ptr u8[BUCKET_STORE_SIZE] b) -> reg ptr u8[BUCKET_STORE_SIZE]
 {
   stack u8[BUCKET_STORE_SIZE] b_s;
