@@ -95,7 +95,6 @@ oram *oram_create(size_t capacity_u64, size_t stash_overflow_size, entropy_func 
 {
     size_t num_blocks = (capacity_u64 / BLOCK_DATA_SIZE_QWORDS) + (capacity_u64 % BLOCK_DATA_SIZE_QWORDS == 0 ? 0 : 1);
     size_t num_levels = ceil_log2(num_blocks);
-    printf("\nnum_levels: %lu\n", num_levels);
 
     return _create(num_levels, num_blocks, stash_overflow_size, getentropy);
 }
@@ -224,7 +223,7 @@ static error_t oram_access(
     tree_path_update(oram->path, x);
     tree_path* path = oram->path;
 
-    oram_read_path_for_block(oram, path, block_id, &target_block, new_position * 2);
+    oram_read_path_for_block_jazz(oram, path, block_id, &target_block, new_position * 2);
     RETURN_IF_ERROR(perform_access_op(&target_block, accessor, accessor_args));
 
     RETURN_IF_ERROR(stash_add_block(oram->stash, &target_block));
@@ -363,12 +362,15 @@ const oram_statistics* oram_report_statistics(oram* oram) {
     return &(oram->statistics);
 }
 
-//#ifdef IS_TEST
+#ifdef IS_TEST
 #include <stdio.h>
 #include <math.h>
 #include <sys/random.h>
 #include "../include/util.h"
 #include "../include/tests.h"
+
+// jasmin functions
+void oram_read_path_for_block_jazz(oram* oram, const tree_path* path, u64 target_block_id, block *target, u64 new_position);
 
 void print_oram(const oram *oram)
 {
@@ -383,7 +385,6 @@ static size_t expected_num_blocks_for_capacity(size_t capacity) {
 
 int test_ceil_log()
 {
-
     TEST_ASSERT(ceil_log2(1) == 0);
     TEST_ASSERT(ceil_log2(2) == 1);
     TEST_ASSERT(ceil_log2(3) == 2);
@@ -393,7 +394,6 @@ int test_ceil_log()
     TEST_ASSERT(ceil_log2(7) == 3);
     TEST_ASSERT(ceil_log2(8) == 3);
     TEST_ASSERT(ceil_log2(9) == 4);
-
     TEST_ASSERT(ceil_log2(1ULL << 33) == 33);
     TEST_ASSERT(ceil_log2((1ULL << 33) + 1) == 34);
 
@@ -439,7 +439,7 @@ int init_odd_capacity_test()
 
 int allocate_until_full_test()
 {
-    size_t capacity = 1 << 16;
+    size_t capacity = 1 << 20;
     oram *oram = oram_create(capacity, TEST_STASH_SIZE, getentropy);
     size_t expected_num_blocks = expected_num_blocks_for_capacity(capacity);
     for (size_t i = 0; i < expected_num_blocks; ++i)
@@ -483,7 +483,7 @@ int allocate_contiguous_until_full_test()
 
 int getput_cycle_works()
 {
-    size_t capacity = 1 << 23;
+    size_t capacity = 1 << 20;
     oram *oram = oram_create(capacity, TEST_STASH_SIZE, getentropy);
 
     oram_allocate_contiguous(oram, 1330);
@@ -668,13 +668,13 @@ static void initialization_test_group()
 
 static void allocate_test_group()
 {
-    // RUN_TEST(allocate_until_full_test());
+    RUN_TEST(allocate_until_full_test());
     RUN_TEST(allocate_contiguous_until_full_test());
 }
 
 static void getput_test_group()
 {
-    // RUN_TEST(getput_cycle_works());
+    RUN_TEST(getput_cycle_works());
     RUN_TEST(getput_only_accesses_allocated_blocks());
     RUN_TEST(getput_correctly_accesses_allocated_blocks());
     RUN_TEST(getput_must_put_to_change_block());
@@ -688,4 +688,4 @@ void run_path_oram_tests()
     getput_test_group();
 }
 
-//#endif // IS_TEST
+#endif // IS_TEST

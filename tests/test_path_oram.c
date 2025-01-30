@@ -12,7 +12,7 @@
 
 int get_put_repeat()
 {
-    size_t capacity = 1 << 22;
+    size_t capacity = 1 << 20;
     oram *oram = oram_create(capacity, TEST_STASH_SIZE, getentropy);
 
     oram_allocate_contiguous(oram, 1330);
@@ -44,7 +44,7 @@ int get_put_repeat()
 
 int test_oram_clear()
 {
-    size_t capacity = 1 << 22;
+    size_t capacity = 1 << 20;
     oram *oram = oram_create(capacity, TEST_STASH_SIZE, getentropy);
 
     oram_allocate_contiguous(oram, 1330);
@@ -101,8 +101,8 @@ error_t test_create_for_avail_mem() {
 int main(int argc, char *argv[])
 {
     run_path_oram_tests();
-    // RUN_TEST(get_put_repeat());
-    // RUN_TEST(test_oram_clear());
+    RUN_TEST(get_put_repeat());
+    RUN_TEST(test_oram_clear());
     // RUN_TEST(test_create_for_avail_mem());
     return 0;
 }
