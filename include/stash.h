@@ -6,7 +6,7 @@
 
 #include "util.h"
 #include "bucket.h"
-// #include "position_map.h"
+#include "position_map.h"
 #include "tree_path.h"
 
 typedef struct stash stash;
@@ -96,14 +96,10 @@ size_t stash_num_overflow_blocks(const stash* stash);
 size_t stash_size_bytes(size_t path_length, size_t overflow_size);
 
 // jasmin functions
-void stash_add_path_bucket_jazz(stash* stash, bucket_store* bucket_store, u64 bucket_id, u64 target_block_id, block target[static 1]);
-void stash_scan_overflow_for_target_jazz(stash* stash, u64 target_block_id, block target[static 1]);
-void stash_place_empty_blocks_jazz(stash* stash);
-void cond_copy_block_jazz(u64 cond, block* dst, const block* src);
-void cond_swap_blocks_jazz(u64 cond, block* a, block* b);
-void bitonic_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
+void stash_add_path_bucket_jazz(stash* stash, bucket_store* bucket_store, u64 bucket_id, u64 target_block_id, block *target);
+void stash_scan_overflow_for_target_jazz(stash* stash, u64 target_block_id, block *target);
 
-// #ifdef IS_TEST
+#ifdef IS_TEST
 
 typedef enum {
     bucket_density_empty,
@@ -114,14 +110,9 @@ typedef enum {
 
 void stash_print(const stash *stash);
 int test_cond_cpy_block();
-int test_cond_cpy_block_jazz();
 int test_oblv_sort();
-int test_oblv_sort_jazz();
 int test_stash_insert_read();
-int test_stash_insert_read_jazz();
 int test_fill_stash();
-int test_fill_stash_jazz();
 int test_load_bucket_path_to_stash(bucket_density density);
-int test_load_bucket_path_to_stash_jazz(bucket_density density);
-// #endif // IS_TEST
+#endif // IS_TEST
 #endif // CDS_PATH_ORAM_STASH_H

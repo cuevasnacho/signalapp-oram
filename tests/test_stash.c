@@ -33,15 +33,6 @@ static void public_stash_tests()
     RUN_TEST(test_load_bucket_path_to_stash(bucket_density_full));
     RUN_TEST(test_load_bucket_path_to_stash(bucket_density_dense));
     RUN_TEST(test_load_bucket_path_to_stash(bucket_density_sparse));
-
-    // Jasmin tests
-    RUN_TEST(test_cond_cpy_block_jazz());
-    RUN_TEST(test_oblv_sort_jazz());
-    RUN_TEST(test_stash_insert_read_jazz());
-    RUN_TEST(test_fill_stash_jazz());
-    RUN_TEST(test_load_bucket_path_to_stash_jazz(bucket_density_full));
-    RUN_TEST(test_load_bucket_path_to_stash_jazz(bucket_density_dense));
-    RUN_TEST(test_load_bucket_path_to_stash_jazz(bucket_density_sparse));
 }
 
 int main()

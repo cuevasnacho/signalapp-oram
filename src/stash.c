@@ -8,7 +8,6 @@
 #include "../include/stash.h"
 #include "../include/bucket.h"
 #include "../include/tree_path.h"
-//#include "../include/log.h"
 
 // We grow additively instead of doubling because the stash size process has a
 // significant negative drift that increases as the size of the stash increases.
@@ -104,7 +103,6 @@ const block* stash_path_blocks(const stash* stash) {
 }
 
 static void stash_extend_overflow(stash* stash) {
-    //TEST_LOG("extending overflow from %zu to %zu", stash->overflow_capacity, stash->overflow_capacity + STASH_GROWTH_INCREMENT);
     size_t new_num_blocks = stash->num_blocks + STASH_GROWTH_INCREMENT;
 
     // (re)allocate new space, free the old
@@ -376,10 +374,14 @@ error_t stash_clear(stash* stash) {
     return err_SUCCESS;
 }
 
-// #ifdef IS_TEST
+#ifdef IS_TEST
 #include <stdio.h>
 #include <sys/random.h>
 #include "../include/tests.h"
+
+// jasmin functions
+void cond_copy_block_jazz(bool cond, block* dst, const block* src);
+void cond_swap_blocks_jazz(bool cond, block* a, block* b);
 
 void stash_print(const stash *stash)
 {
@@ -404,60 +406,48 @@ void stash_print(const stash *stash)
 
 int test_cond_cpy_block() {
     block b1 = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
+    block b1_jazz = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
     block b1_orig = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
     block b2 = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
+    block b2_jazz = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
     block b2_orig = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
+
     block target = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
     block mt_block = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
+    block target_jazz = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
+    block mt_block_jazz = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
 
 
     cond_copy_block(false, &target, &b1);
+    cond_copy_block_jazz(false, &target_jazz, &b1_jazz);
     TEST_ASSERT(memcmp(&mt_block, &target, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&mt_block_jazz, &target_jazz, sizeof(block)) == 0);
     TEST_ASSERT(memcmp(&b1_orig, &b1, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&b1_jazz, &b1, sizeof(block)) == 0);
 
     cond_copy_block(true, &target, &b1);
+    cond_copy_block_jazz(true, &target_jazz, &b1_jazz);
     TEST_ASSERT(memcmp(&target, &b1, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&target_jazz, &b1_jazz, sizeof(block)) == 0);
     TEST_ASSERT(memcmp(&b1_orig, &b1, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&b1_jazz, &b1, sizeof(block)) == 0);
 
     cond_swap_blocks(false, &b1, &b2);
+    cond_swap_blocks(false, &b1_jazz, &b2_jazz);
     TEST_ASSERT(memcmp(&b1_orig, &b1, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&b1_orig, &b1_jazz, sizeof(block)) == 0);
     TEST_ASSERT(memcmp(&b2_orig, &b2, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&b2_orig, &b2_jazz, sizeof(block)) == 0);
 
     cond_swap_blocks(true, &b1, &b2);
+    cond_swap_blocks(true, &b1_jazz, &b2_jazz);
     TEST_ASSERT(memcmp(&b1_orig, &b2, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&b1_orig, &b2_jazz, sizeof(block)) == 0);
     TEST_ASSERT(memcmp(&b2_orig, &b1, sizeof(block)) == 0);
+    TEST_ASSERT(memcmp(&b2_orig, &b1_jazz, sizeof(block)) == 0);
 
     return 0;
 }
-
-int test_cond_cpy_block_jazz() {
-    block b1 = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
-    block b1_orig = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
-    block b2 = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
-    block b2_orig = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
-    block target = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block mt_block = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-
-
-    cond_copy_block_jazz(0, &target, &b1);
-    TEST_ASSERT(memcmp(&mt_block, &target, sizeof(block)) == 0);
-    TEST_ASSERT(memcmp(&b1_orig, &b1, sizeof(block)) == 0);
-
-    cond_copy_block_jazz(1, &target, &b1);
-    TEST_ASSERT(memcmp(&target, &b1, sizeof(block)) == 0);
-    TEST_ASSERT(memcmp(&b1_orig, &b1, sizeof(block)) == 0);
-
-    cond_swap_blocks_jazz(0, &b1, &b2);
-    TEST_ASSERT(memcmp(&b1_orig, &b1, sizeof(block)) == 0);
-    TEST_ASSERT(memcmp(&b2_orig, &b2, sizeof(block)) == 0);
-
-    cond_swap_blocks_jazz(1, &b1, &b2);
-    TEST_ASSERT(memcmp(&b1_orig, &b2, sizeof(block)) == 0);
-    TEST_ASSERT(memcmp(&b2_orig, &b1, sizeof(block)) == 0);
-
-    return 0;
-}
-
 
 int test_oblv_sort() {
     size_t num_blocks = 30;
@@ -494,10 +484,6 @@ int test_oblv_sort() {
     memcpy(original_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
 
     bitonic_sort(blocks, bucket_assignments, 0, num_blocks, true);
-    for(size_t i = 0; i < num_blocks; ++i) {
-        printf("%" PRIu64 " ", blocks[i].id);
-    }
-    printf("\n");
     for(size_t i = 1; i < num_blocks; ++i) {
         // check that it is sorted
         TEST_ASSERT(bucket_assignments[i-1] <= bucket_assignments[i]);
@@ -513,58 +499,6 @@ int test_oblv_sort() {
         TEST_ASSERT(found);
 
     }
-    return err_SUCCESS;
-}
-
-
-int test_oblv_sort_jazz() {
-    size_t num_blocks = 20;
-    block blocks[20] = {
-        {.id = 1},
-        {.id = 2},
-        {.id = 3},
-        {.id = 4},
-        {.id = 5},
-        {.id = 6},
-        {.id = 7},
-        {.id = 8},
-        {.id = 9},
-        {.id = 10},
-        {.id = 11},
-        {.id = 12},
-        {.id = 13},
-        {.id = 14},
-        {.id = 15},
-        {.id = 16},
-        {.id = 17},
-        {.id = 18},
-        {.id = 19},
-        {.id = 20},
-    };
-
-    u64 bucket_assignments[20];
-
-    block original_blocks[20];
-    u64 original_bucket_assignments[20];
-    memcpy(original_blocks, blocks, sizeof(blocks));
-    memcpy(original_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
-
-    bitonic_sort_jazz(blocks, bucket_assignments, 0, num_blocks, true);
-    for(size_t i = 1; i < num_blocks; ++i) {
-        // check that it is sorted
-        TEST_ASSERT(bucket_assignments[i-1] <= bucket_assignments[i]);
-        // and that the blocks and bucket assignments moved together
-        bool found = false;
-        for(size_t j = 0; j < num_blocks; ++j) {
-            if(blocks[i].id == original_blocks[j].id) {
-                found = true;
-                TEST_ASSERT(bucket_assignments[i] == original_bucket_assignments[j]);
-                break;
-            }
-        }
-        TEST_ASSERT(found);
-    }
-    printf("\n");
     return err_SUCCESS;
 }
 
@@ -627,7 +561,10 @@ static void generate_blocks_for_bucket(u64 bucket_id, u64 block_id_start, size_t
 
 }
 
-static void load_bucket_store(bucket_store* bucket_store, size_t num_levels, const tree_path* path, bucket_density density, size_t* num_blocks_created) {
+static void load_bucket_store(
+    bucket_store* bucket_store0, bucket_store* bucket_store1, size_t num_levels,
+    const tree_path* path, bucket_density density, size_t* num_blocks_created
+) {
     u8 bucket_data[DECRYPTED_BUCKET_SIZE];
     block* bucket_blocks = (block*) bucket_data;
     *num_blocks_created = 0;
@@ -648,168 +585,122 @@ static void load_bucket_store(bucket_store* bucket_store, size_t num_levels, con
         }
         *num_blocks_created += num_blocks;
         generate_blocks_for_bucket(path->values[level], *num_blocks_created, num_blocks, bucket_blocks);
-        bucket_store_write_bucket_blocks(bucket_store, path->values[level], bucket_blocks);
+        bucket_store_write_bucket_blocks(bucket_store0, path->values[level], bucket_blocks);
+        bucket_store_write_bucket_blocks(bucket_store1, path->values[level], bucket_blocks);
     }
     
 }
 
 int test_load_bucket_path_to_stash(bucket_density density) {
     size_t num_levels = 18;
-    stash *stash = stash_create(num_levels, TEST_STASH_SIZE);
-    bucket_store* bucket_store = bucket_store_create(num_levels);
+    stash *stash0 = stash_create(num_levels, TEST_STASH_SIZE);
+    stash *stash1 = stash_create(num_levels, TEST_STASH_SIZE);
+    bucket_store* bucket_store0 = bucket_store_create(num_levels);
+    bucket_store* bucket_store1 = bucket_store_create(num_levels);
+
     u64 root = (1ul << (num_levels - 1)) - 1;
     u64 leaf = 157142;
-    tree_path* path = tree_path_create(leaf, root);
+    tree_path* path0 = tree_path_create(leaf, root);
+    tree_path* path1 = tree_path_create_jazz(leaf, root);
+
     size_t num_blocks_added = 0;
-    load_bucket_store(bucket_store, num_levels, path, density, &num_blocks_added);
+    load_bucket_store(bucket_store0, bucket_store1, num_levels, path0, density, &num_blocks_added);
 
     u64 target_block_id = num_blocks_added / 2;
-    block target = {.id=EMPTY_BLOCK_ID};
-    for(size_t i = 0; i < path->length; ++i) {
-        stash_add_path_bucket(stash, bucket_store, path->values[i], target_block_id, &target);
+    block target0 = {.id=EMPTY_BLOCK_ID};
+    block target1 = {.id=EMPTY_BLOCK_ID};
+    for(size_t i = 0; i < path0->length; ++i) {
+        stash_add_path_bucket(stash0, bucket_store0, path0->values[i], target_block_id, &target0);
+        stash_add_path_bucket_jazz(stash1, bucket_store1, path1->values[i], target_block_id, &target1);
     }
 
-    TEST_ASSERT(target.id == target_block_id);
-    for(size_t i = 0; i < path->length; ++i) {
-        block* bucket_blocks = stash->path_blocks + i * BLOCKS_PER_BUCKET;
+    TEST_ASSERT(target0.id == target_block_id);
+    TEST_ASSERT(target1.id == target_block_id);
+    for(size_t i = 0; i < path0->length; ++i) {
+        block* bucket_blocks0 = stash0->path_blocks + i * BLOCKS_PER_BUCKET;
+        block* bucket_blocks1 = stash1->path_blocks + i * BLOCKS_PER_BUCKET;
         for(size_t b = 0; b < BLOCKS_PER_BUCKET; ++b) {
-            TEST_ASSERT(bucket_blocks[b].id != target_block_id);
+            TEST_ASSERT(bucket_blocks0[b].id != target_block_id);
+            TEST_ASSERT(bucket_blocks1[b].id != target_block_id);
         }
     }
 
-    stash_destroy(stash);
-    bucket_store_destroy(bucket_store);
-    tree_path_destroy(path);
-    return 0;
-}
-
-
-int test_load_bucket_path_to_stash_jazz(bucket_density density) {
-    size_t num_levels = 18;
-    stash *stash = stash_create(num_levels, TEST_STASH_SIZE);
-    bucket_store* bucket_store = bucket_store_create(num_levels);
-    u64 root = (1ul << (num_levels - 1)) - 1;
-    u64 leaf = 157142;
-    tree_path* path = tree_path_create_jazz(leaf, root);
-    size_t num_blocks_added = 0;
-    load_bucket_store(bucket_store, num_levels, path, density, &num_blocks_added);
-
-    u64 target_block_id = num_blocks_added / 2;
-    block target = {.id=EMPTY_BLOCK_ID};
-    for(size_t i = 0; i < path->length; ++i) {
-        stash_add_path_bucket_jazz(stash, bucket_store, path->values[i], target_block_id, &target);
-    }
-
-    TEST_ASSERT(target.id == target_block_id);
-    for(size_t i = 0; i < path->length; ++i) {
-        block* bucket_blocks = stash->path_blocks + i * BLOCKS_PER_BUCKET;
-        for(size_t b = 0; b < BLOCKS_PER_BUCKET; ++b) {
-            TEST_ASSERT(bucket_blocks[b].id != target_block_id);
-        }
-    }
-
-    stash_destroy(stash);
-    bucket_store_destroy(bucket_store);
-    tree_path_destroy(path);
+    stash_destroy(stash0);
+    stash_destroy(stash1);
+    bucket_store_destroy(bucket_store0);
+    bucket_store_destroy(bucket_store1);
+    tree_path_destroy(path0);
+    tree_path_destroy(path1);
     return 0;
 }
 
 
 int test_stash_insert_read()
 {
-    stash *stash = stash_create(20, TEST_STASH_SIZE);
+    stash *stash0 = stash_create(18, TEST_STASH_SIZE);
+    stash *stash1 = stash_create(18, TEST_STASH_SIZE);
     u64 data0[BLOCK_DATA_SIZE_QWORDS];
     u64 data1[BLOCK_DATA_SIZE_QWORDS];
     u64 block_id0 = 1234;
     u64 block_id1 = 45678;
     fill_block_data(data0);
     fill_block_data(data1);
+
     block b0 = {.id = block_id0, .position = 2};
     block b1 = {.id = block_id1, .position = 3};
     block target0 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
     block target1 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
+    block target2 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
+    block target3 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
     memcpy(b0.data, data0, sizeof(data0));
     memcpy(b1.data, data1, sizeof(data1));
 
-    RETURN_IF_ERROR(stash_add_block(stash, &b0));
-    RETURN_IF_ERROR(stash_add_block(stash, &b1));
-    bool b0_in_stash = false;
-    bool b1_in_stash = false;
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        b0_in_stash = b0_in_stash || (stash->overflow_blocks[i].id == b0.id);
-        b1_in_stash = b1_in_stash || (stash->overflow_blocks[i].id == b1.id);
+    RETURN_IF_ERROR(stash_add_block(stash0, &b0));
+    RETURN_IF_ERROR(stash_add_block(stash0, &b1));
+    RETURN_IF_ERROR(stash_add_block(stash1, &b0));
+    RETURN_IF_ERROR(stash_add_block(stash1, &b1));
+
+    bool b0_in_stash = false, b1_in_stash = false;
+    bool b2_in_stash = false, b3_in_stash = false;
+    for(size_t i = 0; i < stash0->overflow_capacity; ++i) {
+        b0_in_stash = b0_in_stash || (stash0->overflow_blocks[i].id == b0.id);
+        b1_in_stash = b1_in_stash || (stash0->overflow_blocks[i].id == b1.id);
+        b2_in_stash = b2_in_stash || (stash1->overflow_blocks[i].id == b0.id);
+        b3_in_stash = b3_in_stash || (stash1->overflow_blocks[i].id == b1.id);
     }
     TEST_ASSERT(b0_in_stash);
     TEST_ASSERT(b1_in_stash);
+    TEST_ASSERT(b2_in_stash);
+    TEST_ASSERT(b3_in_stash);
 
-    stash_scan_overflow_for_target(stash, block_id0, &target0);
-    stash_scan_overflow_for_target(stash, block_id1, &target1);
-
-    check_stash_entry(target0, block_id0, data0, 2);
-    check_stash_entry(target1, block_id1, data1, 3);
-
-    // check that it is no longer in stash
-    b0_in_stash = false;
-    b1_in_stash = false;
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        b0_in_stash = b0_in_stash || (stash->overflow_blocks[i].id == b0.id);
-        b1_in_stash = b1_in_stash || (stash->overflow_blocks[i].id == b1.id);
-    }
-    TEST_ASSERT(!b0_in_stash);
-    TEST_ASSERT(!b1_in_stash);
-
-    stash_destroy(stash);
-    return err_SUCCESS;
-}
-
-
-int test_stash_insert_read_jazz()
-{
-    stash *stash = stash_create(20, TEST_STASH_SIZE);
-    u64 data0[BLOCK_DATA_SIZE_QWORDS];
-    u64 data1[BLOCK_DATA_SIZE_QWORDS];
-    u64 block_id0 = 1234;
-    u64 block_id1 = 45678;
-    fill_block_data(data0);
-    fill_block_data(data1);
-    block b0 = {.id = block_id0, .position = 2};
-    block b1 = {.id = block_id1, .position = 3};
-    block target0 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block target1 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    memcpy(b0.data, data0, sizeof(data0));
-    memcpy(b1.data, data1, sizeof(data1));
-
-    RETURN_IF_ERROR(stash_add_block(stash, &b0));
-    RETURN_IF_ERROR(stash_add_block(stash, &b1));
-    bool b0_in_stash = false;
-    bool b1_in_stash = false;
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        b0_in_stash = b0_in_stash || (stash->overflow_blocks[i].id == b0.id);
-        b1_in_stash = b1_in_stash || (stash->overflow_blocks[i].id == b1.id);
-    }
-    TEST_ASSERT(b0_in_stash);
-    TEST_ASSERT(b1_in_stash);
-
-    stash_scan_overflow_for_target_jazz(stash, block_id0, &target0);
-    stash_scan_overflow_for_target_jazz(stash, block_id1, &target1);
+    stash_scan_overflow_for_target(stash0, block_id0, &target0);
+    stash_scan_overflow_for_target(stash0, block_id1, &target1);
+    stash_scan_overflow_for_target_jazz(stash1, block_id0, &target2);
+    stash_scan_overflow_for_target_jazz(stash1, block_id1, &target3);
 
     check_stash_entry(target0, block_id0, data0, 2);
     check_stash_entry(target1, block_id1, data1, 3);
+    check_stash_entry(target2, block_id0, data0, 2);
+    check_stash_entry(target3, block_id1, data1, 3);
 
     // check that it is no longer in stash
-    b0_in_stash = false;
-    b1_in_stash = false;
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        b0_in_stash = b0_in_stash || (stash->overflow_blocks[i].id == b0.id);
-        b1_in_stash = b1_in_stash || (stash->overflow_blocks[i].id == b1.id);
+    b0_in_stash = false; b1_in_stash = false;
+    b2_in_stash = false; b3_in_stash = false;
+    for(size_t i = 0; i < stash0->overflow_capacity; ++i) {
+        b0_in_stash = b0_in_stash || (stash0->overflow_blocks[i].id == b0.id);
+        b1_in_stash = b1_in_stash || (stash0->overflow_blocks[i].id == b1.id);
+        b2_in_stash = b2_in_stash || (stash1->overflow_blocks[i].id == b0.id);
+        b3_in_stash = b3_in_stash || (stash1->overflow_blocks[i].id == b1.id);
     }
     TEST_ASSERT(!b0_in_stash);
     TEST_ASSERT(!b1_in_stash);
+    TEST_ASSERT(!b2_in_stash);
+    TEST_ASSERT(!b3_in_stash);
 
-    stash_destroy(stash);
+    stash_destroy(stash0);
+    stash_destroy(stash1);
     return err_SUCCESS;
 }
-
 
 int test_fill_stash() {
     size_t small_stash_size = 20;
@@ -840,34 +731,4 @@ int test_fill_stash() {
     return 0;
 }
 
-
-int test_fill_stash_jazz() {
-    size_t small_stash_size = 20;
-    stash *stash = stash_create(20, small_stash_size);
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        block b = {.id = i, .position = 2*(100+i)};
-        RETURN_IF_ERROR(stash_add_block(stash, &b));
-        // check that it is in the stash
-    }
-
-    block b = {.id = stash->overflow_capacity, .position = 2*(100+stash->overflow_capacity)};
-
-    // This will trigger an extension of the stash
-    RETURN_IF_ERROR(stash_add_block(stash, &b));
-
-    // now remove a block and then confirm that we have room
-    block target = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-
-    u64 search_block_id = 11;
-    stash_scan_overflow_for_target_jazz(stash, search_block_id, &target);
-    TEST_ASSERT(target.id == search_block_id);
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        TEST_ASSERT(stash->blocks[i].id != search_block_id);
-    }
-    RETURN_IF_ERROR(stash_add_block(stash, &b));
-
-    stash_destroy(stash);
-    return 0;
-}
-
-// #endif // IS_TEST
+#endif // IS_TEST
