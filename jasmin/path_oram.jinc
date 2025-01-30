@@ -1,4 +1,5 @@
 require "params.jinc"
+require "stash.jinc"
 
 inline
 fn random_mod_by_pow_of_2(
@@ -39,17 +40,19 @@ fn oram_read_path_for_block(
   reg u64 stash bucket_store value;
   inline int i;
 
-  stash = [oram + 8 * STASH_ADDR];
+  () = #spill(new_position);
+  stash = (64u)[oram + 8 * STASH_ADDR];
   bucket_store = [oram];
   for i = 0 to PATH_LENGTH
   {
-    value = [path + 8 * i]; // should add 8 for C
+    value = (64u)[path + 8 + 8 * i];
     stash_add_path_bucket(stash, bucket_store, value, target_block_id, target);
   }
   stash_scan_overflow_for_target(stash, target_block_id, target);
 
-  [target] = target_block_id;
-  [target + 8] = new_position;
+  () = #unspill(new_position);
+  (u64)[target] = target_block_id;
+  (u64)[target + 8] = new_position;
 }
 
 fn read_accessor(
@@ -61,8 +64,8 @@ fn read_accessor(
   inline int i;
   for i = 0 to BLOCK_DATA_SIZE_QWORDS * 8
   {
-    r64 = [block_data + 8 * i];
-    [out_data + 8 * i] = r64;
+    r64 = (64u)[block_data + 8 * i];
+    (u64)[out_data + 8 * i] = r64;
   }
 }
 
@@ -88,7 +91,7 @@ fn write_accessor_full(
 
     addr1 = #LEA(block_data + 8 * i);
     addr2 = #LEA(in_data + 8 * ((i + BLOCK_DATA_SIZE_QWORDS) % BLOCK_DATA_SIZE_QWORDS));
-    cond_obv_cpy_u64()
+    // TODO: complete this function
   }
 }
 
@@ -114,6 +117,6 @@ fn write_accessor_partial(
     cond &= ctmp;
 
     source_index = i + in_data_len;
-    // check how to do modulo
+    // TODO: check how to do modulo
   }
 }

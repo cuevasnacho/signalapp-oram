@@ -1,0 +1,12 @@
+require "path_oram.jinc"
+
+export
+fn oram_read_path_for_block_jazz(
+  reg u64 oram path,
+  reg u64 target_block_id,
+  reg u64 target,
+  reg u64 new_position
+)
+{
+  oram_read_path_for_block(oram, path, target_block_id, target, new_position);
+}
