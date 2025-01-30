@@ -26,8 +26,9 @@ fn level(
 ) -> reg u64
 {
   reg u64 v;
-  v = !n;
-  v = #TZCNT(n);
+  v = n;
+  v = !v;
+  v = #TZCNT(v);
   return v;
 }
 
@@ -102,7 +103,9 @@ fn tree_path_num_nodes(
 ) -> reg u64
 {
   reg u64 r;
-  r = ((64u)1 << num_levels) - 1;
+  r = 1;
+  r = #SHL(r, num_levels);
+  r -= 1;
   return r;
 }
 
@@ -113,8 +116,10 @@ fn tree_path_lower_bound(
 {
   reg u64 l step;
   l = level(val);
-  step = ((64u)1 << l) - 1;
-  step = #LEA(val - step);
+  step = 1;
+  step = #SHL(step, l);
+  step -= 1;
+  step = val - step;
   return step;
 }
 
@@ -125,7 +130,9 @@ fn tree_path_upper_bound(
 {
   reg u64 l step;
   l = level(val);
-  step = ((64u)1 << l) - 1;
+  step = 1;
+  step = #SHL(step, l);
+  step -= 1;
   step += val;
   return step;
 }

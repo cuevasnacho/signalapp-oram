@@ -6,3 +6,66 @@ fn tree_path_update_jazz(reg u64 tp leaf)
   tp = #LEA(tp + 8);
   tree_path_update(tp, leaf);
 }
+
+export
+fn level_jazz(
+  reg u64 n
+) -> reg u64
+{
+  reg u64 r;
+  r = level(n);
+  return r;
+}
+
+export
+fn node_val_jazz(
+  reg u64 level offset
+) -> reg u64
+{
+  reg u64 r;
+  level = level; offset = offset;
+  r = node_val(level, offset);
+  return r;
+}
+
+export
+fn tree_path_num_nodes_jazz(
+  reg u64 num_levels
+) -> reg u64
+{
+  reg u64 r;
+  num_levels = num_levels;
+  r = tree_path_num_nodes(num_levels);
+  return r;
+}
+
+export
+fn tree_path_lower_bound_jazz(
+  reg u64 val
+) -> reg u64
+{
+  reg u64 r;
+  val = val;
+  r = tree_path_lower_bound(val);
+  return r;
+}
+
+export
+fn tree_path_upper_bound_jazz(
+  reg u64 val
+) -> reg u64
+{
+  reg u64 r;
+  r = tree_path_upper_bound(val);
+  return r;
+}
+
+export
+fn tree_path_level_jazz(
+  reg u64 val
+) -> reg u64
+{
+  reg u64 r;
+  r = tree_path_level(val);
+  return r;
+}
