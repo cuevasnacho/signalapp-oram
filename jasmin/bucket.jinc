@@ -16,7 +16,7 @@ fn bucket_store_clear(
 {
   reg u64 i bound data;
   i = 0;
-  data = [bucket_store + 16];
+  data = (64u)[bucket_store + 16];
   bound = ((1 << TREE_LEVELS) - 1) * ENCRYPTED_BUCKET_SIZE;
   while (i < bound)
   {

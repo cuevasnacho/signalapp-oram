@@ -98,7 +98,7 @@ bool block_is_empty(block block)
 #ifdef IS_TEST
 #include <stdio.h>
 #include <time.h>
-#include "util/tests.h"
+#include "../include/tests.h"
 
 // Planning to add tests here when using pruned trees and variable branching
 void private_bucket_store_tests()
