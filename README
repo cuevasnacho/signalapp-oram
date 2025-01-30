@@ -22,21 +22,22 @@ Tested functions:
 - `bucket_store_write_bucket_blocks`
 
 ## Stash
-Code is compiling but there are some functions that haven't been tested and they are a bit complex.
+Code almost completed. The main problem here are:
+- `bitonic_sort`: which is a recursive function (not possible in Jasmin)
+- `stash_extend_overflow`: does reallocation. Jasmin does not support dynamic memory allocation but may be there is a way to reallocate using syscalls
 
 Tested functions:
-- `stash_add_path_bucket`: something is happening with this function. If the whole test suite is executed then it will fail, otherwise it passes all tests.
+- `stash_add_path_bucket`
 - `stash_scan_overflow_for_target`
-  - `stash_overflow_ub`
-  - `first_block_in_bucket_for_level`
-  - `cond_swap_blocks`
-  - `cond_copy_block`
-    - `cond_obv_copy_u64`
-    - `cond_obv_swap_u64` not oblivious yet
+- `stash_overflow_ub`
+- `first_block_in_bucket_for_level`
+- `cond_swap_blocks`
+- `cond_copy_block`
+- `cond_obv_copy_u64`
+- `cond_obv_swap_u64`
 
-## Test Suite
-> **Note:**
-> Remember to change `PATH_LENGTH` parameter in `params.jinc` to correctly run the test suite.
+## Path ORAM
+Since the capacities are fixed, some of them have been modified thus every test has the same capacity. There is an inconvenient when $num\_blocks > 1\ll14$ because two ORAMs are created and one of them will use wrong parameters.
 
-## Wish list
-- Change `#CMOVcc` instructions
+Tested functions:
+- `oram_read_path_for_block_jazz`
