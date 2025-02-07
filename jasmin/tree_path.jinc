@@ -116,6 +116,7 @@ fn tree_path_lower_bound(
 {
   reg u64 l step;
   l = level(val);
+  val = val;
   step = 1;
   step = #SHL(step, l);
   step -= 1;
