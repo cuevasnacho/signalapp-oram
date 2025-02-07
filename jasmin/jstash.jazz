@@ -21,6 +21,32 @@ fn stash_scan_overflow_for_target_jazz(
 }
 
 export
+fn stash_assign_block_to_bucket_jazz(
+  reg u64 stash path,
+  reg u8 t,
+  reg u64 index
+)
+{
+  stash_assign_block_to_bucket(stash, path, t, index);
+}
+
+export
+fn stash_place_empty_blocks_jazz(
+  reg u64 stash
+)
+{
+  stash_place_empty_blocks(stash);
+}
+
+export
+fn stash_assign_buckets_jazz(
+  reg u64 stash path
+)
+{
+  stash_assign_buckets(stash, path);
+}
+
+export
 fn cond_copy_block_jazz(
   reg u8 cond,
   reg u64 dst src
@@ -45,5 +71,14 @@ fn bitonic_sort_jazz(
   reg u8 direction
 )
 {
+  blocks = blocks; block_level_assignments = block_level_assignments;
   bitonic_sort(blocks, block_level_assignments);
+}
+
+export
+fn stash_build_path_jazz(
+  reg u64 stash path
+)
+{
+  stash_build_path(stash, path);
 }

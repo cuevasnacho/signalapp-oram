@@ -86,7 +86,7 @@ fn cond_copy_block(
 {
   inline int i;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    cond_obv_copy_u64(cond, dst, src);
+    cond_obv_cpy_u64(cond, dst, src);
     dst = #LEA(dst + 8);
     src = #LEA(src + 8);
   }
@@ -183,42 +183,49 @@ fn stash_scan_overflow_for_target(
 
 inline
 fn stash_assign_block_to_bucket(
-  reg u64 stash path, // path is the pointer to values
-  inline int t,
+  reg u64 stash path,
+  reg u8 t,
   reg u64 index
 )
 {
   // standard variables
   reg u64 max_level assignment_index lvl;
   // pointer variables
-  reg u64 path_blocks block bucket_occupancy;
+  reg u64 path_blocks block bucket_occupancy bucket_assignments;
   // temporary variables
-  reg u64 r1 r2 bucket_id bid bpos tree_bound bucket_assignment;
+  reg u64 r1 r2 bucket_id bid bpos tree_bound tmp;
   // boolean variables
-  reg u8 c1 c2;
+  reg u8 c1 c2 c3;
   reg bool b;
-
-  b = t == BLOCK_TYPE_OVERFLOW;  // is_overflow_block
-
+  
   // the block cannot be assigned to this level or higher
-  r1 = (64u)PATH_LENGTH;
-  r2 = (index / BLOCKS_PER_BUCKET) + 1;
-  max_level = #CMOVcc(b, r1, r2);
-  r1 = BLOCKS_PER_BUCKET * PATH_LENGTH + index;
-  assignment_index = #CMOVcc(b, r1, index);
+  if (t == BLOCK_TYPE_OVERFLOW) { // is_overflow_block
+    max_level = (64u)PATH_LENGTH;
+    assignment_index = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH + index);
+  } else {
+    max_level = index;
+    tmp = BLOCKS_PER_BUCKET;
+    max_level = max_level / tmp;
+    max_level = #LEA(max_level + 1);
+    assignment_index = index;
+  }
 
   path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
-  block = (64u)[path_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS * assignment_index];
-  bid = (64u)[block];
-  bpos = (64u)[block + 8];
+  tmp = assignment_index;
+  tmp *= 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
+  bid = (64u)[path_blocks + tmp];
+  bpos = (64u)[path_blocks + tmp + 8];
 
   bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
+  bucket_assignments = (64u)[stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  () = #spill(path, stash, assignment_index, bucket_assignments);
 
-  c1 = 0; // is_assigned
+  c1 = #set0_8(); // is_assigned
   lvl = 0;
   while (lvl < max_level)
   {
     r2 = (64u)[bucket_occupancy + 8 * lvl];
+    () = #unspill(path);
     bucket_id = (64u)[path + 8 + 8 * lvl];
 
     c1 = !c1;
@@ -226,32 +233,36 @@ fn stash_assign_block_to_bucket(
     tree_bound = tree_path_lower_bound(bucket_id);
     b = tree_bound <= bpos;
     c2 = #SETcc(b);
-    c1 &= c2;
+    c2 &= c1;
     tree_bound = tree_path_upper_bound(bucket_id);
     b = tree_bound >= bpos;
-    c2 = #SETcc(b);
-    c1 &= c2;
+    c3 = #SETcc(b);
+    c2 &= c3;
     // bucket_has_room
     b = r2 < BLOCKS_PER_BUCKET;
-    c2 = #SETcc(b);
-    c1 &= c2;
+    c3 = #SETcc(b);
+    c2 &= c3;
     // not is_empty
     b = bid != EMPTY_BLOCK_ID;
-    c2 = #SETcc(b);
-    c1 &= c2;
-    b = c1 != 0;
-
+    c3 = #SETcc(b);
+    c2 &= c3;
+    // is_assigned = cond | is_assigned;
+    c1 = !c1;
+    c1 |= c2;
+    b = c2 != 0;
+    
     // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
     // for this position.
     // increment this, it will only get saved if `b` is true.
-    r1 = r2 + 1;
+    r1 = #LEA(r2 + 1);
     r1 = #CMOVcc(b, r1, r2);
-    (u64)[stash + 8 * (BUCKET_OCCUPANCY_ADDR + lvl)] = r1;
-    bucket_assignment = (64u)[stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)];
-    r1 = #CMOVcc(b, lvl, bucket_assignment);
-    (u64)[stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)] = r1;
-
-    lvl += 1;
+    () = #unspill(assignment_index, bucket_assignments);
+    (u64)[bucket_occupancy + 8 * lvl] = r1;
+    r1 = (64u)[bucket_assignments + 8 * assignment_index];
+    r1 = #CMOVcc(b, lvl, r1);
+    (u64)[bucket_assignments + 8 * assignment_index] = r1;
+    
+    lvl = #LEA(lvl + 1);
   }
 }
 
@@ -262,9 +273,9 @@ fn stash_place_empty_blocks(
   // standard variables
   reg u64 curr_bucket;
   // pointer variables
-  reg u64 bucket_occupancy blocks;
+  reg u64 blocks bucket_occupancy bucket_assignments;
   // temporary variables
-  reg u64 tmp_bo bid bucket_assignment i tmp_r;
+  reg u64 tmp_bo bid i tmp_r offset;
   // boolean variables
   reg u8 c1 c2;
   reg bool b;
@@ -272,41 +283,44 @@ fn stash_place_empty_blocks(
 
   blocks = (64u)[stash];
   bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
-  bucket_assignment = (64u)[stash + 8 * BUCKET_ASSIGNMENT_ADDR];
-  curr_bucket = 0;
+  bucket_assignments = (64u)[stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  curr_bucket = #set0();
   i = 0;
   while (i < NUM_BLOCKS)
   {
     c1 = 0; // found_curr_bucket
     for j = 0 to PATH_LENGTH
     {
-      tmp_bo = (64u)[bucket_occupancy + 8 * j];
       c1 = !c1;
       // bucket_has_room
+      tmp_bo = (64u)[bucket_occupancy + 8 * j];
       b = tmp_bo != BLOCKS_PER_BUCKET;
       c2 = #SETcc(b);
-      c1 &= c2;
+      c2 &= c1;
       // set_curr_bucket
-      b = c1 != 0;
+      b = c2 != 0;
       tmp_r = (64u)j;
-      curr_bucket = #CMOVcc(b, curr_bucket, tmp_r);
+      curr_bucket = #CMOVcc(b, tmp_r, curr_bucket);
+      c1 = !c1;
+      c1 |= c2;
     }
     tmp_bo = (64u)[bucket_occupancy + 8 * curr_bucket];
-    bid = (64u)[blocks + 8 * (DECRYPTED_BLOCK_SIZE_QWORDS + i)];
+    offset = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * i;
+    bid = (64u)[blocks + offset];
     // cond_place_in_bucket
-    b = tmp_bo < BLOCKS_PER_BUCKET;
-    c1 = #SETcc(b);
     b = bid == EMPTY_BLOCK_ID;
     c2 = #SETcc(b);
+    b = tmp_bo < BLOCKS_PER_BUCKET;
+    c1 = #SETcc(b);
     c1 &= c2;
     b = c1 != 0;
 
     tmp_r = #LEA(tmp_bo + 1);
     tmp_r = #CMOVcc(b, tmp_r, tmp_bo);
     (u64)[bucket_occupancy + 8 * curr_bucket] = tmp_r;
-    tmp_bo = (64u)[bucket_assignment + 8 * i];
+    tmp_bo = (64u)[bucket_assignments + 8 * i];
     tmp_r = #CMOVcc(b, curr_bucket, tmp_bo);
-    (u64)[bucket_assignment + 8 * i] = tmp_r;
+    (u64)[bucket_assignments + 8 * i] = tmp_r;
     i += 1;
   }
   // at the end, every bucket should be full
@@ -319,14 +333,14 @@ fn stash_assign_buckets(
   // standard variables
   reg u64 ub;
   // pointer variables
-  reg u64 bucket_assignment bucket_occupancy;
+  reg u64 bucket_assignments bucket_occupancy;
   // temporary variables
   reg u64 it;
   inline int i lvl;
 
   // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
-  bucket_assignment = (64u)[stash + 8 * BUCKET_ASSIGNMENT_ADDR];
-  for i = 0 to NUM_BLOCKS { (u64)[bucket_assignment + 8 * i] = (64u)-1; }
+  bucket_assignments = (64u)[stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  for i = 0 to NUM_BLOCKS { (u64)[bucket_assignments + 8 * i] = (64u)-1; }
   bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
   for i = 0 to PATH_LENGTH { (u64)[bucket_occupancy + 8 * i] = (64u)0; }
 
@@ -344,7 +358,7 @@ fn stash_assign_buckets(
   while (it < ub)
   {
     stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_OVERFLOW, it);
-    it += 1;
+    it = #LEA(it + 1);
   }
 
   // now assign empty blocks to fill the buckets
@@ -383,7 +397,8 @@ fn comp_blocks(
   return r;
 }
 
-fn bitonic_sort(  // TODO: only working for length = 2^k
+// Precondition: `blocks` and `block_level_assignments` length are the same and it is 2^k for some k
+fn bitonic_sort(
   reg u64 blocks block_level_assignments
 )
 {
@@ -430,6 +445,21 @@ fn bitonic_sort(  // TODO: only working for length = 2^k
     }
     size <<= 1;
   }
+}
+
+inline
+fn stash_build_path(
+  reg u64 stash path
+)
+{
+  reg u64 overflow_size;
+  reg u64 blocks bucket_assignments;
+
+  overflow_size = stash_overflow_ub(stash);
+  stash_assign_buckets(stash, path);
+  blocks = [stash];
+  bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  bitonic_sort(blocks, bucket_assignments);
 }
 
 
@@ -525,7 +555,7 @@ fn i_cond_copy_block(
 {
   inline int i;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    cond_obv_copy_u64(cond, dst, src);
+    cond_obv_cpy_u64(cond, dst, src);
     dst = #LEA(dst + 8);
     src = #LEA(src + 8);
   }
@@ -609,7 +639,7 @@ fn i_stash_assign_block_to_bucket(
   // pointer variables
   reg u64 path_blocks block bucket_occupancy;
   // temporary variables
-  reg u64 r1 r2 bucket_id bid bpos tree_bound bucket_assignment;
+  reg u64 r1 r2 bucket_id bid bpos tree_bound bucket_assignments;
   // boolean variables
   reg u8 c1 c2;
   reg bool b;
@@ -663,9 +693,9 @@ fn i_stash_assign_block_to_bucket(
     r1 = r2 + 1;
     r1 = #CMOVcc(b, r1, r2);
     [stash + 8 * (BUCKET_OCCUPANCY_ADDR + lvl)] = r1;
-    bucket_assignment = [stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)];
-    r1 = #CMOVcc(b, lvl, bucket_assignment);
-    [stash + 8 * (BUCKET_ASSIGNMENT_ADDR + assignment_index)] = r1;
+    bucket_assignments = [stash + 8 * (BUCKET_ASSIGNMENTS_ADDR + assignment_index)];
+    r1 = #CMOVcc(b, lvl, bucket_assignments);
+    [stash + 8 * (BUCKET_ASSIGNMENTS_ADDR + assignment_index)] = r1;
 
     lvl += 1;
   }
@@ -680,7 +710,7 @@ fn i_stash_place_empty_blocks(
   // pointer variables
   reg u64 bucket_occupancy blocks;
   // temporary variables
-  reg u64 tmp_bo bid bucket_assignment i tmp_r;
+  reg u64 tmp_bo bid bucket_assignments i tmp_r;
   // boolean variables
   reg u8 c1 c2;
   reg bool b;
@@ -688,7 +718,7 @@ fn i_stash_place_empty_blocks(
 
   blocks = [stash];
   bucket_occupancy = [stash + 8 * BUCKET_OCCUPANCY_ADDR];
-  bucket_assignment = [stash + 8 * BUCKET_ASSIGNMENT_ADDR];
+  bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
   curr_bucket = 0;
   i = 0;
   while (i < NUM_BLOCKS)
@@ -720,9 +750,9 @@ fn i_stash_place_empty_blocks(
     tmp_r = #LEA(tmp_bo + 1);
     tmp_r = #CMOVcc(b, tmp_r, tmp_bo);
     [bucket_occupancy + 8 * curr_bucket] = tmp_r;
-    tmp_bo = [bucket_assignment + 8 * i];
+    tmp_bo = [bucket_assignments + 8 * i];
     tmp_r = #CMOVcc(b, curr_bucket, tmp_bo);
-    [bucket_assignment + 8 * i] = tmp_r;
+    [bucket_assignments + 8 * i] = tmp_r;
     i += 1;
   }
   // at the end, every bucket should be full
@@ -735,14 +765,14 @@ fn i_stash_assign_buckets(
   // standard variables
   reg u64 ub;
   // pointer variables
-  reg u64 bucket_assignment bucket_occupancy;
+  reg u64 bucket_assignments bucket_occupancy;
   // temporary variables
   reg u64 it;
   inline int i lvl;
 
   // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
-  bucket_assignment = [stash + 8 * BUCKET_ASSIGNMENT_ADDR];
-  for i = 0 to NUM_BLOCKS { [bucket_assignment + 8 * i] = (64u)-1; }
+  bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  for i = 0 to NUM_BLOCKS { [bucket_assignments + 8 * i] = (64u)-1; }
   bucket_occupancy = [stash + 8 * BUCKET_OCCUPANCY_ADDR];
   for i = 0 to PATH_LENGTH { [bucket_occupancy + 8 * i] = (64u)0; }
 

@@ -31,7 +31,7 @@ fn ternary(
 }
 
 inline
-fn cond_obv_copy_u64(
+fn cond_obv_cpy_u64(
   reg u8 cond,
   reg u64 dest src
 )

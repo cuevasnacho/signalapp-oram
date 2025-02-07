@@ -223,7 +223,7 @@ static error_t oram_access(
     tree_path_update(oram->path, x);
     tree_path* path = oram->path;
 
-    oram_read_path_for_block_jazz(oram, path, block_id, &target_block, new_position * 2);
+    oram_read_path_for_block(oram, path, block_id, &target_block, new_position * 2);
     RETURN_IF_ERROR(perform_access_op(&target_block, accessor, accessor_args));
 
     RETURN_IF_ERROR(stash_add_block(oram->stash, &target_block));
