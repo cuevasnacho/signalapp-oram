@@ -383,6 +383,7 @@ error_t stash_clear(stash* stash) {
 void cond_copy_block_jazz(bool cond, block* dst, const block* src);
 void cond_swap_blocks_jazz(bool cond, block* a, block* b);
 void stash_assign_buckets_jazz(stash* stash, const tree_path* path);
+void stash_add_block_jazz(stash* stash, block* new_block);
 void stash_assign_block_to_bucket_jazz(stash* stash, const tree_path* path, bool type, size_t index);
 void stash_place_empty_blocks_jazz(stash* stash);
 void bitonic_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
@@ -668,14 +669,16 @@ int test_stash_insert_read()
 
     RETURN_IF_ERROR(stash_add_block(stash0, &b0));
     RETURN_IF_ERROR(stash_add_block(stash0, &b1));
-    RETURN_IF_ERROR(stash_add_block(stash1, &b0));
-    RETURN_IF_ERROR(stash_add_block(stash1, &b1));
+    stash_add_block_jazz(stash1, &b0);
+    stash_add_block_jazz(stash1, &b1);
 
     bool b0_in_stash = false, b1_in_stash = false;
     bool b2_in_stash = false, b3_in_stash = false;
     for(size_t i = 0; i < stash0->overflow_capacity; ++i) {
         b0_in_stash = b0_in_stash || (stash0->overflow_blocks[i].id == b0.id);
         b1_in_stash = b1_in_stash || (stash0->overflow_blocks[i].id == b1.id);
+    }
+    for(size_t i = 0; i < stash1->overflow_capacity; ++i) {
         b2_in_stash = b2_in_stash || (stash1->overflow_blocks[i].id == b0.id);
         b3_in_stash = b3_in_stash || (stash1->overflow_blocks[i].id == b1.id);
     }
