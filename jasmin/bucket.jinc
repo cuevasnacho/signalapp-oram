@@ -1,14 +1,5 @@
 require "tree_path.jinc"
 
-// block
-// u64 id;
-// u64 position;
-// u64 data[BLOCK_DATA_SIZE_QWORDS];
-
-// bucket_store
-// size_t num_levels;
-// size_t size_bytes;
-// u8 *data;
 inline
 fn bucket_store_clear(
   reg u64 bucket_store
@@ -76,14 +67,6 @@ fn bucket_store_write_bucket_blocks(
 
 
 // ------ using stacks --------
-
-// block
-// u64 id;
-// u64 position;
-// u64 data[BLOCK_DATA_SIZE_QWORDS];
-
-// bucket_store
-// u8 *data;
 
 // Create a path ORAM bucket store with capacity for a tree with `PATH_LENGTH` levels,
 // i.e. 2^PATH_LENGTH - 1 tree nodes and 2^(PATH_LENGTH - 1) leaf nodes/pathORAM positions.

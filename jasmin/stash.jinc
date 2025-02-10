@@ -465,14 +465,6 @@ fn stash_build_path(
 
 // ------ using stacks --------
 
-// stash
-// block* blocks;
-// block* path_blocks;
-// block* overflow_blocks;
-// size_t overflow_capacity;
-// u64* bucket_occupancy;
-// u64* bucket_assignments;
-
 fn stash_create(
   reg ptr u64[STASH_SIZE] stash
 ) -> reg ptr u64[STASH_SIZE]
