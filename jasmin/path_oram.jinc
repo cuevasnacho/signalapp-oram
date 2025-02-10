@@ -100,7 +100,7 @@ fn oram_read_path_for_block(
 
 //   new_position <<= 1;
 //   oram_read_path_for_block(oram, ptr, block_id, target_block, new_position);
-//   // perform_access_op
+//   read_accessor(target_block);
 
 //   stash = [oram + 8 * STASH_ADDR];
 //   stash_add_block(stash, target_block);
@@ -118,14 +118,16 @@ fn oram_read_path_for_block(
 //   }
 // }
 
+inline
 fn read_accessor(
   reg u64 block_data,
-  reg u64 out_data
+  reg u64 vargs
 )
 {
-  reg u64 r64;
+  reg u64 r64 out_data;
   inline int i;
-  for i = 0 to BLOCK_DATA_SIZE_QWORDS * 8
+  out_data = [vargs];
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
   {
     r64 = (64u)[block_data + 8 * i];
     (u64)[out_data + 8 * i] = r64;
