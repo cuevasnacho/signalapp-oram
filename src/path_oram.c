@@ -371,6 +371,7 @@ const oram_statistics* oram_report_statistics(oram* oram) {
 
 // jasmin functions
 void oram_read_path_for_block_jazz(oram* oram, const tree_path* path, u64 target_block_id, block *target, u64 new_position);
+void oram_clear_jazz(oram *oram);
 
 void print_oram(const oram *oram)
 {
@@ -620,12 +621,16 @@ int getput_must_put_to_change_block()
 }
 
 int test_oram_clears_stash() {size_t capacity = 1 << 20;
-    oram *oram = oram_create(capacity, TEST_STASH_SIZE, getentropy);
-    u64 buf[BLOCK_DATA_SIZE_QWORDS];
+    oram *oram0 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
+    oram *oram1 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
+    u64 buf0[BLOCK_DATA_SIZE_QWORDS];
+    u64 buf1[BLOCK_DATA_SIZE_QWORDS];
 
     // Allocate some blocks
-    oram_allocate_contiguous(oram, 1330);
-    oram_allocate_block(oram);
+    oram_allocate_contiguous(oram0, 1330);
+    oram_allocate_block(oram0);
+    oram_allocate_contiguous(oram1, 1330);
+    oram_allocate_block(oram1);
 
     block b = {.id = 1000, .position = 1234};
 
@@ -633,29 +638,38 @@ int test_oram_clears_stash() {size_t capacity = 1 << 20;
     {
         b.data[j] = j + 1;
     }
-    RETURN_IF_ERROR(stash_add_block(oram->stash, &b));
-    TEST_ASSERT(stash_num_overflow_blocks(oram->stash) == 1);
+    RETURN_IF_ERROR(stash_add_block(oram0->stash, &b));
+    stash_add_block_jazz(oram1->stash, &b);
+    TEST_ASSERT(stash_num_overflow_blocks(oram0->stash) == 1);
+    TEST_ASSERT(stash_num_overflow_blocks(oram1->stash) == 1);
 
-    RETURN_IF_ERROR(oram_get(oram, 1000, buf));
+    RETURN_IF_ERROR(oram_get(oram0, 1000, buf0));
+    RETURN_IF_ERROR(oram_get(oram1, 1000, buf1));
     // Now check that the data we got matches
     for (size_t j = 0; j < BLOCK_DATA_SIZE_QWORDS; ++j)
     {
-        TEST_ASSERT(buf[j] == b.data[j]);
+        TEST_ASSERT(buf0[j] == b.data[j]);
+        TEST_ASSERT(buf1[j] == b.data[j]);
     }
 
-    oram_clear(oram);
+    oram_clear(oram0);
+    oram_clear_jazz(oram1);
 
     // reallocate the blocks so we can get it without error
-    oram_allocate_contiguous(oram, 1330);
-    TEST_ASSERT(stash_num_overflow_blocks(oram->stash) == 0); RETURN_IF_ERROR(oram_get(oram, 1000, buf));
+    oram_allocate_contiguous(oram0, 1330);
+    oram_allocate_contiguous(oram1, 1330);
+    TEST_ASSERT(stash_num_overflow_blocks(oram0->stash) == 0); RETURN_IF_ERROR(oram_get(oram0, 1000, buf0));
+    TEST_ASSERT(stash_num_overflow_blocks(oram1->stash) == 0); RETURN_IF_ERROR(oram_get(oram1, 1000, buf1));
 
     // Now check that the data we got is clear
     for (size_t j = 0; j < BLOCK_DATA_SIZE_QWORDS; ++j)
     {
-        TEST_ASSERT(buf[j] == UINT64_MAX);
+        TEST_ASSERT(buf0[j] == UINT64_MAX);
+        TEST_ASSERT(buf1[j] == UINT64_MAX);
     }
 
-    oram_destroy(oram);
+    oram_destroy(oram0);
+    oram_destroy(oram1);
     return err_SUCCESS;
 }
 

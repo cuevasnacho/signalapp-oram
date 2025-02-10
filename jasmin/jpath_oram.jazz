@@ -10,3 +10,11 @@ fn oram_read_path_for_block_jazz(
 {
   oram_read_path_for_block(oram, path, target_block_id, target, new_position);
 }
+
+export
+fn oram_clear_jazz(
+  reg u64 oram
+)
+{
+  oram_clear(oram);
+}
