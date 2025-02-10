@@ -13,7 +13,7 @@ fn stash_path_blocks(
 }
 
 inline
-fn stash_path_overflow_blocks(
+fn stash_overflow_blocks(
   reg u64 stash
 ) -> reg u64
 {
@@ -53,7 +53,7 @@ fn stash_num_overflow_blocks(
   reg u8 cond;
   reg bool b;
   r = 0; i = 0;
-  overflow_blocks = stash_path_overflow_blocks(stash);
+  overflow_blocks = stash_overflow_blocks(stash);
   overflow_capacity = (64u)[stash + 8 * OVERFLOW_CAPACITY_ADDR];
   while (i < overflow_capacity) {
     bid = (64u)[overflow_blocks + 8 * (i + BLOCK_DATA_SIZE_QWORDS)];
@@ -164,28 +164,28 @@ fn stash_add_block(
   reg u64 stash new_block
 )
 {
-  reg u64 bid i overflow_capacity overflow_blocks tmp;
+  reg u64 bid overflow_capacity overflow_blocks i tmp;
   reg u8 c1 c2;
   reg bool b;
 
-  overflow_blocks = stash_path_overflow_blocks(stash);
+  overflow_blocks = stash_overflow_blocks(stash);
   overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
+
   c1 = 0; // inserted
+  i = 0;
   while (i < overflow_capacity)
   {
-    tmp = 8 * BLOCK_DATA_SIZE_QWORDS;
-    tmp *= i;
-    bid = [overflow_blocks + tmp];
+    bid = [overflow_blocks];
     // cond
     c1 = !c1;
     b = bid == EMPTY_BLOCK_ID;
     c2 = #SETcc(b);
     c2 &= c1;
-    tmp = #LEA(overflow_blocks + 8 * i);
-    cond_copy_block(c2, tmp, new_block);
+    cond_copy_block(c2, overflow_blocks, new_block);
     c1 = !c1;
     c1 |= c2;
     i += 1;
+    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
   }
   // TODO: implement extend overflow and insert
 }
@@ -537,7 +537,7 @@ fn i_stash_num_overflow_blocks(
   reg u8 cond;
   reg bool b;
   r = 0; i = 0;
-  overflow_blocks = stash_path_overflow_blocks(stash);
+  overflow_blocks = stash_overflow_blocks(stash);
   overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
   while (i < overflow_capacity) {
     bid = [overflow_blocks + 8 * (i + BLOCK_DATA_SIZE_QWORDS)];
