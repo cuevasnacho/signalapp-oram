@@ -173,14 +173,16 @@ fn stash_add_block(
   c1 = 0; // inserted
   while (i < overflow_capacity)
   {
-    bid = [overflow_blocks + 8 * BLOCK_DATA_SIZE_QWORDS * i];
+    tmp = 8 * BLOCK_DATA_SIZE_QWORDS;
+    tmp *= i;
+    bid = [overflow_blocks + tmp];
     // cond
     c1 = !c1;
     b = bid == EMPTY_BLOCK_ID;
     c2 = #SETcc(b);
     c2 &= c1;
     tmp = #LEA(overflow_blocks + 8 * i);
-    cond_copy_block(cond, tmp, new_block);
+    cond_copy_block(c2, tmp, new_block);
     c1 = !c1;
     c1 |= c2;
     i += 1;
@@ -191,7 +193,7 @@ fn stash_add_block(
 inline
 fn stash_assign_block_to_bucket(
   reg u64 stash path,
-  reg u8 t,
+  reg u8 t, // is_path_block
   reg u64 index
 )
 {
@@ -206,16 +208,15 @@ fn stash_assign_block_to_bucket(
   reg bool b;
   
   // the block cannot be assigned to this level or higher
-  if (t == BLOCK_TYPE_OVERFLOW) { // is_overflow_block
-    max_level = (64u)PATH_LENGTH;
-    assignment_index = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH + index);
-  } else {
-    max_level = index;
-    tmp = BLOCKS_PER_BUCKET;
-    max_level = max_level / tmp;
-    max_level = #LEA(max_level + 1);
-    assignment_index = index;
-  }
+  r1 = index;
+  tmp = BLOCKS_PER_BUCKET;
+  r1 = r1 / tmp;
+  r1 = #LEA(r1 + 1);
+  r2 = (64u)PATH_LENGTH;
+  max_level = ternary(t, r1, r2);
+
+  r2 = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH + index);
+  assignment_index = ternary(t, index, r2);
 
   path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
   tmp = assignment_index;

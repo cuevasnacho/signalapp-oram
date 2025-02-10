@@ -35,6 +35,7 @@ fn stash_assign_block_to_bucket_jazz(
   reg u64 index
 )
 {
+  t = t;
   stash_assign_block_to_bucket(stash, path, t, index);
 }
 
