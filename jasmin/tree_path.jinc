@@ -147,37 +147,3 @@ fn tree_path_level(
   l = level(val);
   return l;
 }
-
-
-// ------ using stacks --------
-
-inline
-fn i_tree_path_update(
-  reg ptr u64[PATH_LENGTH] t,
-  reg u64 leaf
-) -> reg ptr u64[PATH_LENGTH]
-{
-  reg u64 root_level root level offset;
-  root_level = PATH_LENGTH - 1;
-  root = ((64u)1 << root_level) - 1;
-
-  level, offset = coords_for_val(leaf);
-  t[0] = leaf;
-  while (level < root_level) {
-    level, offset = parent(level, offset);
-    t[level] = node_val(level, offset);
-  }
-  return t;
-}
-
-fn tree_path_create(
-  reg ptr u64[PATH_LENGTH] t,
-  reg u64 leaf
-) -> reg ptr u64[PATH_LENGTH]
-{
-  stack u64[PATH_LENGTH] t_s;
-
-  t = t_s;
-  t = i_tree_path_update(t, leaf);
-  return t;
-}

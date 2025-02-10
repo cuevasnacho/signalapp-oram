@@ -121,12 +121,11 @@ fn oram_read_path_for_block(
 inline
 fn read_accessor(
   reg u64 block_data,
-  reg u64 vargs
+  reg u64 out_data
 )
 {
-  reg u64 r64 out_data;
+  reg u64 r64;
   inline int i;
-  out_data = [vargs];
   for i = 0 to BLOCK_DATA_SIZE_QWORDS
   {
     r64 = (64u)[block_data + 8 * i];
@@ -134,54 +133,81 @@ fn read_accessor(
   }
 }
 
-// args are fixed for oram_put
+inline
 fn write_accessor_full(
   reg u64 block_data,
-  reg u64 in_data,
-  reg u64 out_data
+  reg u64 vargs
 )
 {
-  reg u64 bound addr1 addr2;
-  reg u8 cond ctmp;
-  reg bool b;
+  reg u64 in_data r64;
   inline int i;
 
-  for i = 0 to BLOCK_DATA_SIZE_QWORDS * 8
+  in_data = [vargs + 8 * 2];
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
   {
-    b = i >= 0;
-    cond = #SETcc(b);
-    b = i < BLOCK_DATA_SIZE_QWORDS;
-    ctmp = #SETcc(b);
-    cond &= ctmp;
-
-    addr1 = #LEA(block_data + 8 * i);
-    addr2 = #LEA(in_data + 8 * ((i + BLOCK_DATA_SIZE_QWORDS) % BLOCK_DATA_SIZE_QWORDS));
-    // TODO: complete this function
+    r64 = (64u)[in_data + 8 * i];
+    (u64)[block_data + 8 * i] = r64;
   }
 }
 
-fn write_accessor_partial(
+inline
+fn write_accessor(
   reg u64 block_data,
-  reg u64 in_data_start in_data_len,
-  reg u64 in_data,
-  reg u64 out_data
+  reg u64 vargs
 )
 {
-  reg u64 bound source_index;
-  reg u8 cond ctmp;
+  reg u64 in_data_start in_data_len in_data out_data;
+  reg u64 tmp addr cons;
+  reg u8 c1 c2;
   reg bool b;
   inline int i;
 
-  bound = #LEA(in_data_start + in_data_len);
-  for i = 0 to BLOCK_DATA_SIZE_QWORDS * 8
-  {
-    b = i >= in_data_start;
-    cond = #SETcc(b);
-    b = i < bound;
-    ctmp = #SETcc(b);
-    cond &= ctmp;
-
-    source_index = i + in_data_len;
-    // TODO: check how to do modulo
+  out_data = [vargs + 8 * 3];
+  if (out_data != 0) {
+    read_accessor(block_data, out_data);
   }
+
+  in_data_start = [vargs];
+  in_data_len = [vargs + 8];
+  in_data = [vargs + 8 * 2];
+
+  cons = in_data_start % in_data_len;
+  cons = #LEA(in_data_len - cons);
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    // source_index
+    tmp = #LEA(cons + i);
+    tmp = tmp % in_data_len;
+
+    // address
+    tmp *= 8;
+    addr = #LEA(tmp + in_data);
+
+    // cond
+    b = i >= in_data_start;
+    c1 = #SETcc(b);
+    tmp = #LEA(in_data_start + in_data_len);
+    b = i < tmp;
+    c2 = #SETcc(b);
+    c1 &= c2;
+
+    cond_obv_cpy_u64(c1, block_data, addr);
+    block_data = #LEA(block_data + 8);
+  }
+}
+
+inline
+fn oram_allocate_block(
+  reg u64 oram
+) -> reg u64
+{
+  reg u64 allocated_ub;
+  allocated_ub = (64u)[oram + 8 * 3];
+  if (allocated_ub < CAPACITY_BLOCKS) {
+    allocated_ub = #LEA(allocated_ub + 1);
+    (u64)[oram + 8 * 3] = allocated_ub;
+  } else {
+    allocated_ub = -1;
+  }
+  return allocated_ub;
 }
