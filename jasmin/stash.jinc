@@ -158,6 +158,7 @@ fn stash_scan_overflow_for_target(
   }
 }
 
+// Precondition: there is no block with ID `new_block->id` anywhere in the stash - neither the path_Stash nor the overflow.
 inline
 fn stash_add_block(
   reg u64 stash new_block
@@ -184,7 +185,7 @@ fn stash_add_block(
     c1 |= c2;
     i += 1;
   }
-  //! check if not inserted
+  // TODO: implement extend overflow and insert
 }
 
 inline

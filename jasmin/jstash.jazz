@@ -21,6 +21,14 @@ fn stash_scan_overflow_for_target_jazz(
 }
 
 export
+fn stash_add_block_jazz(
+  reg u64 stash new_block
+)
+{
+  stash_add_block(stash, new_block);
+}
+
+export
 fn stash_assign_block_to_bucket_jazz(
   reg u64 stash path,
   reg u8 t,
