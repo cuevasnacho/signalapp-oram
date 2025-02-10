@@ -158,28 +158,34 @@ fn stash_scan_overflow_for_target(
   }
 }
 
-// export
-// fn stash_add_block(
-//   reg u64 stash new_block
-// )
-// {
-//   reg u64 bid i overflow_capacity overflow_blocks tmp;
-//   reg bool cond inserted;
+inline
+fn stash_add_block(
+  reg u64 stash new_block
+)
+{
+  reg u64 bid i overflow_capacity overflow_blocks tmp;
+  reg u8 c1 c2;
+  reg bool b;
 
-//   overflow_blocks = stash_path_overflow_blocks(stash);
-//   overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
-//   while (i < overflow_capacity)
-//   {
-//     bid = [overflow_blocks + 8 * BLOCK_DATA_SIZE_QWORDS * i];
-//     cond = !inserted;
-//     cond = cond && bid == EMPTY_BLOCK_ID;
-//     tmp = #LEA(overflow_blocks + i);
-//     cond_copy_block(cond, tmp, new_block);
-//     inserted = inserted || cond;
-//     i += 1;
-//   }
-//   //! check if not inserted
-// }
+  overflow_blocks = stash_path_overflow_blocks(stash);
+  overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
+  c1 = 0; // inserted
+  while (i < overflow_capacity)
+  {
+    bid = [overflow_blocks + 8 * BLOCK_DATA_SIZE_QWORDS * i];
+    // cond
+    c1 = !c1;
+    b = bid == EMPTY_BLOCK_ID;
+    c2 = #SETcc(b);
+    c2 &= c1;
+    tmp = #LEA(overflow_blocks + 8 * i);
+    cond_copy_block(cond, tmp, new_block);
+    c1 = !c1;
+    c1 |= c2;
+    i += 1;
+  }
+  //! check if not inserted
+}
 
 inline
 fn stash_assign_block_to_bucket(
@@ -460,6 +466,21 @@ fn stash_build_path(
   blocks = [stash];
   bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
   bitonic_sort(blocks, bucket_assignments);
+}
+
+inline
+fn stash_clear(
+  reg u64 stash
+)
+{
+  reg u64 blocks;
+  inline int i;
+
+  blocks = [stash];
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * NUM_BLOCKS
+  {
+    (u64)[blocks + 8 * i] = -1;
+  }
 }
 
 
