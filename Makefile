@@ -31,8 +31,8 @@ build/test_bucket: setparams-bucket clean src/bucket.c src/tree_path.c build/jtr
 build/test_stash: setparams-stash clean src/bucket.c src/tree_path.c src/stash.c build/jtree_path.s build/jbucket.s build/jstash.s tests/test_stash.c
 	$(CC) $(CFLAGS) -o build/test_stash src/bucket.c src/tree_path.c src/stash.c build/jtree_path.s build/jbucket.s build/jstash.s tests/test_stash.c
 
-build/test_path_oram: setparams-oram clean src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jpath_oram.s tests/test_path_oram.c
-	$(CC) $(CFLAGS) -o build/test_path_oram src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jpath_oram.s tests/test_path_oram.c
+build/test_path_oram: setparams-oram clean src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c
+	$(CC) $(CFLAGS) -o build/test_path_oram src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c
 
 build/%.s: jasmin/%.jazz
 	$(JC) $(JFLAGS) -o $@ $<
