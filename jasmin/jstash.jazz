@@ -7,7 +7,18 @@ fn stash_add_path_bucket_jazz(
   reg u64 target
 )
 {
-  stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target);
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_p;
+  stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_s;
+  inline int i;
+
+  target_p = target_s;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
+  { target_p[u64 i] = (u64)[target + 8 * i]; }
+  // stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target);
+  target_p = _i_stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target_p);
+
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
+  { (u64)[target + 8 * i] = target_p[u64 i]; }
 }
 
 export
@@ -17,7 +28,18 @@ fn stash_scan_overflow_for_target_jazz(
   reg u64 target
 )
 {
-  stash_scan_overflow_for_target(stash, target_block_id, target);
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_p;
+  stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_s;
+  inline int i;
+
+  target_p = target_s;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
+  { target_p[u64 i] = (u64)[target + 8 * i]; }
+  // stash_scan_overflow_for_target(stash, target_block_id, target);
+  target_p = _i_stash_scan_overflow_for_target(stash, target_block_id, target_p);
+
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
+  { (u64)[target + 8 * i] = target_p[u64 i]; }
 }
 
 export

@@ -169,6 +169,31 @@ fn stash_add_path_bucket(
   }
 }
 
+fn _i_stash_add_path_bucket(
+  reg u64 stash bucket_store,
+  reg u64 bucket_id target_block_id,
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target
+) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
+{
+  reg u64 lvl bucket_blocks bid;
+  reg u8 c;
+  reg bool cond;
+  inline int i;
+
+  lvl = tree_path_level(bucket_id);
+  bucket_blocks = first_block_in_bucket_for_level(stash, lvl);
+  bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_blocks);
+  for i = 0 to BLOCKS_PER_BUCKET
+  {
+    bid = (64u)[bucket_blocks];
+    cond = bid == target_block_id;
+    c = #SETcc(cond);
+    target = _i_cond_swap_blocks(c, target, bucket_blocks);
+    bucket_blocks += 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
+  }
+  return target;
+}
+
 // Precondition: `target` is an empty block OR no block in the overflow has ID equal to `target_block_id`
 // Postcondition: No block in the overflow has ID equal to `target_block_id`, `target` is either empty or `target->id == target_block_id`.
 fn stash_scan_overflow_for_target(
@@ -193,6 +218,31 @@ fn stash_scan_overflow_for_target(
     overflow_blocks += 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
     i += 1;
   }
+}
+
+fn _i_stash_scan_overflow_for_target(
+  reg u64 stash,
+  reg u64 target_block_id,
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target
+) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
+{
+  reg u64 ub i bid overflow_blocks offset;
+  reg u8 c;
+  reg bool cond;
+
+  ub = stash_overflow_ub(stash);
+  overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
+  i = 0;
+  while (i < ub)
+  {
+    bid = (64u)[overflow_blocks];
+    cond = bid == target_block_id;
+    c = #SETcc(cond);
+    target = _i_cond_swap_blocks(c, target, overflow_blocks);
+    overflow_blocks += 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
+    i += 1;
+  }
+  return target;
 }
 
 // Precondition: there is no block with ID `new_block->id` anywhere in the stash - neither the path_Stash nor the overflow.
@@ -225,6 +275,39 @@ fn stash_add_block(
     overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
   }
   // TODO: implement extend overflow and insert
+}
+
+inline
+fn _i_stash_add_block(
+  reg u64 stash,
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] new_block
+) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
+{
+  reg u64 bid overflow_capacity overflow_blocks i tmp;
+  reg u8 c1 c2;
+  reg bool b;
+
+  overflow_blocks = stash_overflow_blocks(stash);
+  overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
+
+  c1 = 0; // inserted
+  i = 0;
+  while (i < overflow_capacity)
+  {
+    bid = [overflow_blocks];
+    // cond
+    c1 = !c1;
+    b = bid == EMPTY_BLOCK_ID;
+    c2 = #SETcc(b);
+    c2 &= c1;
+    new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+    c1 = !c1;
+    c1 |= c2;
+    i += 1;
+    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  }
+  // TODO: implement extend overflow and insert
+  return new_block;
 }
 
 inline
@@ -449,6 +532,7 @@ fn bitonic_sort(
 {
   reg u64 size start k i i_bound j addr1 addr2 offset;
   // for (size_t size = 2; size <= n; size <<= 1)
+  () = #spill(blocks);
   size = 2;
   while (size <= ARR_SIZE) {
     // for (size_t start = 0; start < n; start += size)
@@ -468,6 +552,7 @@ fn bitonic_sort(
         while (i < i_bound) {
           reg u8 cond;
           j = #LEA(i + k);
+          () = #unspill(blocks);
           cond = comp_blocks(blocks, block_level_assignments, i, j);
           addr1 = blocks;
           offset = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * i;
@@ -540,11 +625,12 @@ fn stash_build_path(
   reg u64 overflow_size;
   reg u64 blocks bucket_assignments;
 
-  overflow_size = stash_overflow_ub(stash);
   stash_assign_buckets(stash, path);
   blocks = [stash];
   bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
-  bitonic_sort(blocks, bucket_assignments);
+  overflow_size = stash_overflow_ub(stash);
+  overflow_size = #LEA(overflow_size + PATH_LENGTH * BLOCKS_PER_BUCKET);
+  selection_sort(blocks, bucket_assignments, 0, overflow_size);
 }
 
 inline
