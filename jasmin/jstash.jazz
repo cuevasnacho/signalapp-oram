@@ -70,11 +70,33 @@ fn cond_swap_blocks_jazz(
   reg u64 b1 b2
 )
 {
-  cond_swap_blocks(b, b1, b2);
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] a;
+  stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] a_s;
+  inline int i;
+
+  a = a_s;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
+  { a[i] = [b1 + 8 * i]; }
+  a = _i_cond_swap_blocks(b, a, b2);
+
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
+  { [b1 + 8 * i] = a[i]; }
 }
 
+// export
+// fn bitonic_sort_jazz(
+//   reg u64 blocks block_level_assignments,
+//   reg u64 lb ub,
+//   reg u8 direction
+// )
+// {
+//   blocks = blocks;
+//   block_level_assignments = block_level_assignments;
+//   bitonic_sort(blocks, block_level_assignments);
+// }
+
 export
-fn bitonic_sort_jazz(
+fn selection_sort_jazz(
   reg u64 blocks block_level_assignments,
   reg u64 lb ub,
   reg u8 direction
@@ -82,7 +104,7 @@ fn bitonic_sort_jazz(
 {
   blocks = blocks;
   block_level_assignments = block_level_assignments;
-  bitonic_sort(blocks, block_level_assignments);
+  selection_sort(blocks, block_level_assignments, lb, ub);
 }
 
 export

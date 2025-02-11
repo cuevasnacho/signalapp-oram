@@ -386,7 +386,7 @@ void stash_assign_buckets_jazz(stash* stash, const tree_path* path);
 void stash_add_block_jazz(stash* stash, block* new_block);
 void stash_assign_block_to_bucket_jazz(stash* stash, const tree_path* path, bool type, size_t index);
 void stash_place_empty_blocks_jazz(stash* stash);
-void bitonic_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
+void selection_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
 
 void stash_print(const stash *stash)
 {
@@ -491,7 +491,7 @@ int test_oblv_sort() {
     memcpy(jazz_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
 
     bitonic_sort(blocks, bucket_assignments, 0, num_blocks, true);
-    bitonic_sort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
+    selection_sort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
 
     for(size_t i = 1; i < num_blocks; ++i) {
         // check that it is sorted

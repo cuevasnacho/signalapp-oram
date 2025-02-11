@@ -93,6 +93,24 @@ fn cond_copy_block(
 }
 
 inline
+fn _i_cond_copy_block(
+  reg u8 cond,
+  reg u64 dst,
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] src
+) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
+{
+  reg u64 tmp va;
+  inline int i;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
+    va = (64u)[dst];
+    tmp = ternary(cond, src[u64 i], va);
+    (u64)[dst] = tmp;
+    dst = #LEA(dst + 8);
+  }
+  return src;
+}
+
+inline
 fn cond_swap_blocks(
   reg u8 cond,
   reg u64 a b
@@ -104,6 +122,25 @@ fn cond_swap_blocks(
     a = #LEA(a + 8);
     b = #LEA(b + 8);
   }
+}
+
+inline
+fn _i_cond_swap_blocks(
+  reg u8 cond,
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] a,
+  reg u64 b
+) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
+{
+  reg u64 tmp rb;
+  inline int i;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
+    rb = (64u)[b];
+    tmp = ternary(cond, a[u64 i], rb);
+    (u64)[b] = tmp;
+    a[u64 i] = ternary(cond, rb, a[u64 i]);
+    b = #LEA(b + 8);
+  }
+  return a;
 }
 
 // Precondition: `target` is an empty block OR no block in the bucket has ID equal to `target_block_id`
@@ -452,6 +489,46 @@ fn bitonic_sort(
       start += size;
     }
     size <<= 1;
+  }
+}
+
+inline
+fn selection_sort(
+  reg u64 blocks block_level_assignments,
+  reg u64 lb ub
+)
+{
+  reg u64 i j min_index addr1 addr2 offset;
+  reg u8 cond;
+
+  () = #spill(blocks, block_level_assignments);
+  i = lb;
+  while (i < ub) {
+    min_index = i;
+    j = #LEA(i + 1);
+    () = #unspill(blocks, block_level_assignments);
+    while (j < ub) {
+      cond = comp_blocks(blocks, block_level_assignments, min_index, j);
+      min_index = ternary(cond, j, min_index);
+      j += 1;
+    }
+    // swap
+    addr1 = blocks;
+    offset = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * i;
+    addr1 += offset;
+    offset = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * min_index;
+    addr2 = #LEA(blocks + offset);
+    cond = 1; // always swap
+    cond_swap_blocks(cond, addr1, addr2);
+
+    addr1 = block_level_assignments;
+    offset = 8 * i;
+    addr1 += offset;
+    offset = 8 * min_index;
+    addr2 = #LEA(block_level_assignments + offset);
+    cond_obv_swap_u64(cond, addr1, addr2);
+
+    i = #LEA(i + 1);
   }
 }
 

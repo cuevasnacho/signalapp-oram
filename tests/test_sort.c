@@ -21,7 +21,7 @@
 #define GET_TIME(start, end) (((end) - (start)) / CLOCKS_PER_SEC)
 #define GET_CYCLES(start, end) ((end) - (start))
 
-#define ARR_SIZE 20
+#define ARR_SIZE 1024
 
 typedef uint64_t u64;
 
@@ -30,6 +30,8 @@ static inline uint64_t get_cycles() {
     __asm__ volatile("rdtsc" : "=a" (low), "=d" (high));
     return ((uint64_t)high << 32) | low;
 }
+
+void selection_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
 
 int test_sort() {
   size_t num_blocks = ARR_SIZE;
@@ -91,14 +93,9 @@ int test_sort() {
   // Measure time and cycles for Jasmin version
   start_time = clock();
   start_cycles = get_cycles();
-  bitonic_sort_jazz(blocks_jazz, bucket_assignments_jazz, 0, ARR_SIZE, true);
+  selection_sort_jazz(blocks_jazz, bucket_assignments_jazz, 0, ARR_SIZE, true);
   end_cycles = get_cycles();
   end_time = clock();
-
-  for(size_t i = 0; i < num_blocks; ++i) {
-    printf("%" PRIu64 " ", bucket_assignments_jazz[i]);
-  }
-  printf("\n");
 
   printf("Jasmin sort:\n");
   printf("Time: %lf seconds\n", GET_TIME(start_time, end_time));
