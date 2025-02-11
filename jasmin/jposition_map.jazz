@@ -1,21 +1,22 @@
 require "position_map.jinc"
 
 export
-fn scan_position_map_get_jazz(
-  reg u64 scan_position_map,
+fn position_map_get_jazz(
+  reg u64 position_map,
   reg u64 block_id,
   reg u64 position
 )
 {
-  scan_position_map_get(scan_position_map, block_id, position);
+  position_map_get(position_map, block_id, position);
 }
 
 export
-fn scan_position_map_set_jazz(
-  reg u64 scan_position_map,
-  reg u64 block_id position,
-  reg u64 prev_position
-)
+fn position_map_read_then_set_jazz(
+  reg u64 position_map,
+  reg u64 block_id position
+) -> reg u64
 {
-  scan_position_map_set(scan_position_map, block_id, position, prev_position);
+  reg u64 r;
+  r = position_map_read_then_set(position_map, block_id, position);
+  return r;
 }

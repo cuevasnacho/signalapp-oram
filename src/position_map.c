@@ -212,8 +212,8 @@ void position_map_destroy(position_map *position_map)
 
 #ifdef IS_TEST
 // jasmin functions
-void scan_position_map_get_jazz(const scan_position_map *scan_position_map, u64 block_id, u64* position);
-void scan_position_map_set_jazz(scan_position_map *scan_position_map, u64 block_id, u64 position, u64 *prev_position);
+void position_map_get_jazz(const position_map *position_map, u64 block_id, u64* position);
+u64 position_map_read_then_set_jazz(position_map *position_map, u64 block_id, u64 position);
 #endif
 
 error_t position_map_get(const position_map *position_map, u64 block_id, u64* position)

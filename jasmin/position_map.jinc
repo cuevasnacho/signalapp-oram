@@ -1,9 +1,11 @@
+require "consts.jinc"
 require "params.jinc"
 require "util.jinc"
 
 // scan implementation
+inline
 fn scan_position_map_get(
-  reg u64 scan_position_map,
+  reg u64 position_map,
   reg u64 block_id,
   reg u64 position
 )
@@ -12,7 +14,6 @@ fn scan_position_map_get(
   reg u8 cond;
   reg bool b;
 
-  position_map = [scan_position_map + 8];
   // linear scan of array so that every access looks the same.
   i = 0;
   while (i < POSITION_MAP_SIZE)
@@ -25,26 +26,66 @@ fn scan_position_map_get(
   }
 }
 
+inline
 fn scan_position_map_set(
-  reg u64 scan_position_map,
-  reg u64 block_id position,
-  reg u64 prev_position
-)
+  reg u64 position_map,
+  reg u64 block_id position
+) -> reg u64
 {
-  reg u64 position_map i;
+  reg u64 prev_position i;
   reg u8 cond;
   reg bool b;
 
-  [prev_position] = position; // TODO: handle null pointer
-  position_map = [scan_position_map + 8];
+  prev_position = position;
   // linear scan of array so that every access looks the same.
   i = 0;
   while (i < POSITION_MAP_SIZE)
   {
     b = (64u)i == block_id;
     cond = #SETcc(b);
-    cond_obv_cpy_u64(cond, prev_position, position_map);
+    
+    reg u64 tmp va;
+    va = (64u)[position_map];
+    tmp = ternary(cond, prev_position, va);
+    (u64)[position_map] = tmp;
+    prev_position = prev_position;
+    prev_position = ternary(cond, va, prev_position);
+    prev_position = prev_position;
+
     position_map = #LEA(position_map + 8);
     i = #LEA(i + 1);
   }
+  return prev_position;
+}
+
+inline
+fn position_map_get(
+  reg u64 position_map,
+  reg u64 block_id,
+  reg u64 position
+)
+{
+  reg u64 data;
+  if (POSITION_MAP_SIZE < SCAN_THRESHOLD) {
+    data = [position_map + 8 * 3];  // *data
+    scan_position_map_get(data, block_id, position);
+  }
+}
+
+inline
+fn position_map_read_then_set(
+  reg u64 position_map,
+  reg u64 block_id,
+  reg u64 position
+) -> reg u64
+{
+  reg u64 x data;
+  if (POSITION_MAP_SIZE < SCAN_THRESHOLD) {
+    data = [position_map + 8 * 3];  // *data
+    x = scan_position_map_set(data, block_id, position);
+  } else {
+    // implement oram
+    x = 0;
+  }
+  return x;
 }
