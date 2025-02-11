@@ -372,6 +372,8 @@ const oram_statistics* oram_report_statistics(oram* oram) {
 // jasmin functions
 void oram_read_path_for_block_jazz(oram* oram, const tree_path* path, u64 target_block_id, block *target, u64 new_position);
 void oram_clear_jazz(oram *oram);
+u64 oram_allocate_block_jazz(oram *oram);
+u64 oram_allocate_contiguous_jazz(oram *oram, size_t num_blocks);
 
 void print_oram(const oram *oram)
 {

@@ -18,3 +18,32 @@ fn oram_clear_jazz(
 {
   oram_clear(oram);
 }
+
+// export
+// fn write_accessor_jazz(
+//   reg u64 block_data vargs
+// )
+// {
+//   write_accessor(block_data, vargs);
+// }
+
+export
+fn oram_allocate_block_jazz(
+  reg u64 oram
+) -> reg u64
+{
+  reg u64 r;
+  r = oram_allocate_block(oram);
+  return r;
+}
+
+export
+fn oram_allocate_contiguous_jazz(
+  reg u64 oram,
+  reg u64 num_blocks
+) -> reg u64
+{
+  reg u64 r;
+  r = oram_allocate_contiguous(oram, num_blocks);
+  return r;
+}
