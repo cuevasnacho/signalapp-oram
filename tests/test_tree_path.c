@@ -13,12 +13,12 @@ int test_path(u64 leaf, u64 root, size_t expected_len, const u64 expected_path[e
 {
     tree_path *path0 = tree_path_create(leaf, root);
     tree_path *path1 = tree_path_create_jazz(leaf, root);
-    assert(path0[TP_LENGTH] == expected_len);
-    assert(path1[TP_LENGTH] == expected_len);
+    assert(TREE_PATH_LENGTH(*path0) == expected_len);
+    assert(TREE_PATH_LENGTH(*path1) == expected_len);
     for (size_t i = 0; i < expected_len; ++i)
     {
-        TEST_ASSERT(expected_path[i] == path0[TP_VALUES + i]);
-        TEST_ASSERT(expected_path[i] == path1[TP_VALUES + i]);
+        TEST_ASSERT(expected_path[i] == TREE_PATH_VALUES(*path0)[i]);
+        TEST_ASSERT(expected_path[i] == TREE_PATH_VALUES(*path1)[i]);
     }
     tree_path_destroy(path0);
     tree_path_destroy(path1);

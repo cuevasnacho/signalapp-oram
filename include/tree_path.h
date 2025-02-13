@@ -6,10 +6,10 @@
 
 #include "int_types.h"
 
-typedef u64 tree_path;
+typedef u64 tree_path[];
 
-#define TP_LENGTH 0
-#define TP_VALUES 1
+#define TREE_PATH_LENGTH(tp)  ((size_t)(tp)[0])
+#define TREE_PATH_VALUES(tp)  (&(tp)[1])
 /*
 struct tree_path
 {
