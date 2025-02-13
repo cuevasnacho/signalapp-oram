@@ -22,16 +22,16 @@ test-oram: build/test_path_oram
 
 
 # build tests
-build/test_tree_path: setparams-tree_path clean src/tree_path.c build/jtree_path.s tests/test_tree_path.c
+build/test_tree_path: src/tree_path.c build/jtree_path.s tests/test_tree_path.c
 	$(CC) $(CFLAGS) -o build/test_tree_path src/tree_path.c build/jtree_path.s tests/test_tree_path.c
 
-build/test_bucket: setparams-bucket clean src/bucket.c src/tree_path.c build/jtree_path.s build/jbucket.s tests/test_bucket.c
+build/test_bucket: src/bucket.c src/tree_path.c build/jtree_path.s build/jbucket.s tests/test_bucket.c
 	$(CC) $(CFLAGS) -o build/test_bucket src/bucket.c src/tree_path.c build/jtree_path.s build/jbucket.s tests/test_bucket.c
 
-build/test_stash: setparams-stash clean src/bucket.c src/tree_path.c src/stash.c build/jtree_path.s build/jbucket.s build/jstash.s tests/test_stash.c
+build/test_stash: src/bucket.c src/tree_path.c src/stash.c build/jtree_path.s build/jbucket.s build/jstash.s tests/test_stash.c
 	$(CC) $(CFLAGS) -o build/test_stash src/bucket.c src/tree_path.c src/stash.c build/jtree_path.s build/jbucket.s build/jstash.s tests/test_stash.c
 
-build/test_path_oram: setparams-oram clean src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
+build/test_path_oram: src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
 	$(CC) $(CFLAGS) -o build/test_path_oram src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
 
 syscall/jasmin_syscall.o:
