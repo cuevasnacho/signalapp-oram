@@ -594,7 +594,10 @@ fn selection_sort(
     () = #unspill(blocks, block_level_assignments);
     while (j < ub) {
       cond = comp_blocks(blocks, block_level_assignments, min_index, j);
-      min_index = ternary(cond, j, min_index);
+      if (cond != 0) {
+        min_index = j;
+      }
+      // min_index = ternary(cond, j, min_index);
       j += 1;
     }
     // swap
