@@ -95,10 +95,6 @@ size_t stash_num_overflow_blocks(const stash* stash);
 
 size_t stash_size_bytes(size_t path_length, size_t overflow_size);
 
-// jasmin functions
-void stash_add_path_bucket_jazz(stash* stash, bucket_store* bucket_store, u64 bucket_id, u64 target_block_id, block *target);
-void stash_scan_overflow_for_target_jazz(stash* stash, u64 target_block_id, block *target);
-
 #ifdef IS_TEST
 
 typedef enum {
