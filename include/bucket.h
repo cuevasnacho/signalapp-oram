@@ -24,7 +24,7 @@
 
 #define EMPTY_BLOCK_ID UINT64_MAX
 
-typedef struct bucket_store bucket_store;
+typedef u64 bucket_store[3];
 
 // Create a path ORAM bucket store with capacity for a tree with `num_levels` levels,
 // i.e. 2^num_levels - 1 tree nodes and 2^(num_levels - 1) leaf nodes/pathORAM positions.
