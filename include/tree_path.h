@@ -6,12 +6,17 @@
 
 #include "int_types.h"
 
-typedef struct tree_path tree_path;
+typedef u64 tree_path;
+
+#define TP_LENGTH 0
+#define TP_VALUES 1
+/*
 struct tree_path
 {
-    size_t length;
-    u64 values[];
+  size_t length;
+  u64 values[];
 };
+*/
 
 tree_path *tree_path_create(u64 leaf, u64 root);
 void tree_path_destroy(tree_path *tp);

@@ -177,8 +177,8 @@ static void oram_collect_statistics(oram* oram) {
  * @param new_position Position for the target block after this access
  */
 static void oram_read_path_for_block(oram* oram, const tree_path* path, u64 target_block_id, block *target, u64 new_position) {
-    for(size_t i = 0; i < path->length; ++i) {
-        stash_add_path_bucket(oram->stash, oram->bucket_store, path->values[i], target_block_id, target);
+    for(size_t i = 0; i < path[TP_LENGTH]; ++i) {
+        stash_add_path_bucket(oram->stash, oram->bucket_store, path[TP_VALUES + i], target_block_id, target);
     }
     stash_scan_overflow_for_target(oram->stash, target_block_id, target);
 
@@ -230,9 +230,9 @@ static error_t oram_access(
 
     stash_build_path(oram->stash, oram->path);
 
-    for (size_t i = 0; i < path->length; ++i)
+    for (size_t i = 0; i < path[TP_LENGTH]; ++i)
     {
-        u64 bucket_id = path->values[i];
+        u64 bucket_id = path[TP_VALUES + i];
         bucket_store_write_bucket_blocks(oram->bucket_store, bucket_id, stash_path_blocks(oram->stash) + i * BLOCKS_PER_BUCKET);
     }
     oram_collect_statistics(oram);

@@ -233,7 +233,7 @@ static void stash_assign_block_to_bucket(stash* stash, const tree_path* path, bl
     bool is_assigned = false;
     for(u64 level = 0; level < max_level; ++level) {
         u64 bucket_occupancy = stash->bucket_occupancy[level];
-        u64 bucket_id = path->values[level];
+        u64 bucket_id = path[TP_VALUES + level];
         bool is_valid = tree_path_lower_bound(bucket_id) <= block->position & tree_path_upper_bound(bucket_id) >= block->position;
         bool bucket_has_room = bucket_occupancy < BLOCKS_PER_BUCKET;    
         bool cond = is_valid & bucket_has_room & !is_assigned & block->id != EMPTY_BLOCK_ID;
@@ -577,7 +577,7 @@ static void load_bucket_store(
     u8 bucket_data[DECRYPTED_BUCKET_SIZE];
     block* bucket_blocks = (block*) bucket_data;
     *num_blocks_created = 0;
-    for(size_t level = 0; level < path->length; ++level) {
+    for(size_t level = 0; level < path[TP_LENGTH]; ++level) {
         size_t num_blocks = 0;
         switch(density) {
         case bucket_density_empty:
@@ -593,9 +593,9 @@ static void load_bucket_store(
             num_blocks = BLOCKS_PER_BUCKET;
         }
         *num_blocks_created += num_blocks;
-        generate_blocks_for_bucket(path->values[level], *num_blocks_created, num_blocks, bucket_blocks);
-        bucket_store_write_bucket_blocks(bucket_store0, path->values[level], bucket_blocks);
-        bucket_store_write_bucket_blocks(bucket_store1, path->values[level], bucket_blocks);
+        generate_blocks_for_bucket(path[TP_VALUES + level], *num_blocks_created, num_blocks, bucket_blocks);
+        bucket_store_write_bucket_blocks(bucket_store0, path[TP_VALUES + level], bucket_blocks);
+        bucket_store_write_bucket_blocks(bucket_store1, path[TP_VALUES + level], bucket_blocks);
     }
     
 }
@@ -618,14 +618,14 @@ int test_load_bucket_path_to_stash(bucket_density density) {
     u64 target_block_id = num_blocks_added / 2;
     block target0 = {.id=EMPTY_BLOCK_ID};
     block target1 = {.id=EMPTY_BLOCK_ID};
-    for(size_t i = 0; i < path0->length; ++i) {
-        stash_add_path_bucket(stash0, bucket_store0, path0->values[i], target_block_id, &target0);
-        stash_add_path_bucket_jazz(stash1, bucket_store1, path1->values[i], target_block_id, &target1);
+    for(size_t i = 0; i < path0[TP_LENGTH]; ++i) {
+        stash_add_path_bucket(stash0, bucket_store0, path0[TP_VALUES + i], target_block_id, &target0);
+        stash_add_path_bucket_jazz(stash1, bucket_store1, path1[TP_VALUES + i], target_block_id, &target1);
     }
 
     TEST_ASSERT(target0.id == target_block_id);
     TEST_ASSERT(target1.id == target_block_id);
-    for(size_t i = 0; i < path0->length; ++i) {
+    for(size_t i = 0; i < path0[TP_LENGTH]; ++i) {
         block* bucket_blocks0 = stash0->path_blocks + i * BLOCKS_PER_BUCKET;
         block* bucket_blocks1 = stash1->path_blocks + i * BLOCKS_PER_BUCKET;
         for(size_t b = 0; b < BLOCKS_PER_BUCKET; ++b) {
