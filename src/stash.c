@@ -382,10 +382,7 @@ error_t stash_clear(stash* stash) {
 // jasmin functions
 void cond_copy_block_jazz(bool cond, block* dst, const block* src);
 void cond_swap_blocks_jazz(bool cond, block* a, block* b);
-void stash_assign_buckets_jazz(stash* stash, const tree_path* path);
 void stash_add_block_jazz(stash* stash, block* new_block);
-void stash_assign_block_to_bucket_jazz(stash* stash, const tree_path* path, bool type, size_t index);
-void stash_place_empty_blocks_jazz(stash* stash);
 void selection_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
 
 void stash_print(const stash *stash)
@@ -444,8 +441,8 @@ int test_cond_cpy_block() {
     TEST_ASSERT(memcmp(&b2_orig, &b2, sizeof(block)) == 0);
     TEST_ASSERT(memcmp(&b2_orig, &b2_jazz, sizeof(block)) == 0);
 
-    cond_swap_blocks(true, &b1, &b2);
-    cond_swap_blocks(true, &b1_jazz, &b2_jazz);
+    cond_swap_blocks_jazz(true, &b1, &b2);
+    cond_swap_blocks_jazz(true, &b1_jazz, &b2_jazz);
     TEST_ASSERT(memcmp(&b1_orig, &b2, sizeof(block)) == 0);
     TEST_ASSERT(memcmp(&b1_orig, &b2_jazz, sizeof(block)) == 0);
     TEST_ASSERT(memcmp(&b2_orig, &b1, sizeof(block)) == 0);
