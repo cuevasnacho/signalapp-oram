@@ -1,29 +1,7 @@
 require "path_oram.jinc"
 
 export
-fn oram_read_path_for_block_jazz(
-  reg u64 oram path,
-  reg u64 target_block_id,
-  reg u64 target,
-  reg u64 new_position
-)
-{
-  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block;
-  stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
-  inline int i;
-
-  target_block_id = target_block_id;
-  target_block = target_block_s;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
-  { target_block[u64 i] = (u64)[target + 8 * i]; }
-  // oram_read_path_for_block(oram, path, target_block_id, target, new_position);
-  target_block = _i_oram_read_path_for_block(oram, path, target_block_id, target_block, new_position);
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
-  { (u64)[target + 8 * i] = target_block[u64 i]; }
-}
-
-export
-fn oram_access_jazz(
+fn oram_access_read_jazz(
   reg u64 oram,
   reg u64 block_id,
   reg u64 out_data
@@ -36,30 +14,22 @@ fn oram_access_jazz(
 }
 
 export
+fn oram_access_write_jazz(
+  reg u64 oram,
+  reg u64 block_id,
+  reg u64 in_data
+)
+{
+  oram = oram;
+  block_id = block_id;
+  in_data = in_data;
+  oram_access_write(oram, block_id, in_data);
+}
+
+export
 fn oram_clear_jazz(
   reg u64 oram
 )
 {
   oram_clear(oram);
-}
-
-export
-fn oram_allocate_block_jazz(
-  reg u64 oram
-) -> reg u64
-{
-  reg u64 r;
-  r = oram_allocate_block(oram);
-  return r;
-}
-
-export
-fn oram_allocate_contiguous_jazz(
-  reg u64 oram,
-  reg u64 num_blocks
-) -> reg u64
-{
-  reg u64 r;
-  r = oram_allocate_contiguous(oram, num_blocks);
-  return r;
 }
