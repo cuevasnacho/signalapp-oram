@@ -182,8 +182,8 @@ static void oram_read_path_for_block(oram* oram, const tree_path* path, u64 targ
     }
     stash_scan_overflow_for_target(oram->stash, target_block_id, target);
 
-    target->id = target_block_id;
-    target->position = new_position;
+    BLOCK_ID(*target) = target_block_id;
+    BLOCK_POSITION(*target) = new_position;
 }
 
 /**
@@ -199,7 +199,7 @@ static error_t perform_access_op(
     void* accessor_args) 
 {
     CHECK(accessor != NULL);
-    RETURN_IF_ERROR(accessor(target->data, accessor_args));
+    RETURN_IF_ERROR(accessor(BLOCK_DATA(*target), accessor_args));
 
     return err_SUCCESS;
 }
@@ -210,8 +210,8 @@ static error_t oram_access(
     accessor_func accessor,
     void* accessor_args)
 {
-    block target_block = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    memset(target_block.data, 255, BLOCK_DATA_SIZE_BYTES);
+    block target_block = {EMPTY_BLOCK_ID, UINT64_MAX};
+    memset(BLOCK_DATA(target_block), 255, BLOCK_DATA_SIZE_BYTES);
     size_t max_position = bucket_store_num_leaves(oram->bucket_store);
 
     u64 new_position = random_mod_by_pow_of_2(oram, max_position);
@@ -633,11 +633,11 @@ int test_oram_clears_stash() {size_t capacity = 1 << 20;
     oram_allocate_contiguous(oram1, 1330);
     oram_allocate_block(oram1);
 
-    block b = {.id = 1000, .position = 1234};
+    block b = {1000, 1234};
 
     for (size_t j = 0; j < BLOCK_DATA_SIZE_QWORDS; ++j)
     {
-        b.data[j] = j + 1;
+        BLOCK_DATA(b)[j] = j + 1;
     }
     RETURN_IF_ERROR(stash_add_block(oram0->stash, &b));
     stash_add_block_jazz(oram1->stash, &b);
@@ -649,8 +649,8 @@ int test_oram_clears_stash() {size_t capacity = 1 << 20;
     // Now check that the data we got matches
     for (size_t j = 0; j < BLOCK_DATA_SIZE_QWORDS; ++j)
     {
-        TEST_ASSERT(buf0[j] == b.data[j]);
-        TEST_ASSERT(buf1[j] == b.data[j]);
+        TEST_ASSERT(buf0[j] == BLOCK_DATA(b)[j]);
+        TEST_ASSERT(buf1[j] == BLOCK_DATA(b)[j]);
     }
 
     oram_clear(oram0);

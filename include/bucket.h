@@ -33,13 +33,19 @@ void bucket_store_destroy(bucket_store *bucket_store);
 
 void bucket_store_clear(bucket_store *bucket_store);
 
-typedef struct block block;
+typedef u64 block[2 + BLOCK_DATA_SIZE_QWORDS];
+
+#define BLOCK_ID(b)        ((b)[0])
+#define BLOCK_POSITION(b)  ((b)[1])
+#define BLOCK_DATA(b)      (&(b)[2])
+/*
 struct block
 {
-    u64 id;
-    u64 position;
-    u64 data[BLOCK_DATA_SIZE_QWORDS];
+  u64 id;
+  u64 position;
+  u64 data[BLOCK_DATA_SIZE_QWORDS];
 };
+*/
 
 u64 bucket_store_root(const bucket_store *bucket_store);
 size_t bucket_store_num_levels(const bucket_store *bucket_store);

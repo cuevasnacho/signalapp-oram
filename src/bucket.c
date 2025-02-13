@@ -92,7 +92,7 @@ size_t bucket_store_block_data_size(bucket_store *bucket_store)
 
 bool block_is_empty(block block)
 {
-    return block.id == EMPTY_BLOCK_ID;
+    return BLOCK_ID(block) == EMPTY_BLOCK_ID;
 }
 
 #ifdef IS_TEST
