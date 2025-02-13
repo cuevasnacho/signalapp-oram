@@ -127,18 +127,34 @@ fn _i_read_accessor(
 inline
 fn write_accessor_full(
   reg u64 block_data,
-  reg u64 vargs
+  reg u64 in_data
 )
 {
-  reg u64 in_data r64;
+  reg u64 r64;
   inline int i;
 
-  in_data = [vargs + 8 * 2];
   for i = 0 to BLOCK_DATA_SIZE_QWORDS
   {
     r64 = (64u)[in_data + 8 * i];
     (u64)[block_data + 8 * i] = r64;
   }
+}
+
+inline
+fn _i_write_accessor_full(
+  reg ptr u64[BLOCK_DATA_SIZE_QWORDS] block_data,
+  reg u64 in_data
+) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
+{
+  reg u64 r64;
+  inline int i;
+
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    r64 = (64u)[in_data + 8 * i];
+    block_data[u64 i] = r64;
+  }
+  return block_data;
 }
 
 // inline
@@ -214,13 +230,13 @@ fn oram_access_read(
 
   new_position = random_mod_by_pow_of_2(max_position);
   position_map = [oram + 8 * POSITION_MAP_ADDR];
-  // must generallize to incorporate oram position map
-  new_position = position_map_read_then_set(position_map, block_id, new_position);
-  new_position *= 2;
+  x = position_map_read_then_set(position_map, block_id, new_position);
+  x *= 2;
 
   path = [oram + 8 * PATH_ADDR];
-  tree_path_update(path, new_position);
+  tree_path_update(path, x);
 
+  new_position *= 2;
   target_block = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
   () = #spill(path);
