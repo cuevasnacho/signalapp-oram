@@ -4,8 +4,8 @@
 #ifndef CDS_PATH_ORAM_BUCKET_H
 #define CDS_PATH_ORAM_BUCKET_H 1
 
-#include "util.h"
 #include <stdbool.h>
+#include "util.h"
 
 // 4 KB Page
 // This is the size of an SGX EPC page. We can vary this parameter as we are tuning performance.

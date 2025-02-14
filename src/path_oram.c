@@ -14,6 +14,16 @@
 #include "../include/path_oram.h"
 #include "../include/util.h"
 
+#define ORAM_BUCKET_STORE(o)    ((o)[0])
+#define ORAM_POSITION_MAP(o)    ((o)[1])
+#define ORAM_STASH(o)           ((o)[2])
+#define ORAM_ALLOCATED_UB(o)    ((o)[3])
+#define ORAM_CAPACITY_BLOCKS(o) ((o)[4])
+#define ORAM_NUM_LEVELS(o)      ((o)[5])
+#define ORAM_PATH(o)            ((o)[6])
+#define ORAM_STATISTICS(o)      ((o)[7])
+#define ORAM_GETENTROPY(o)      ((o)[8])
+/*
 struct oram
 {
     bucket_store *bucket_store;
@@ -25,15 +35,16 @@ struct oram
     size_t num_levels;
     tree_path *path;
 
-    oram_statistics statistics;
+    oram_statistics statistics; // make a pointer here?
 
     entropy_func getentropy;
 };
+*/
 
 
 static bool block_is_allocated(const oram *p_oram, u64 block_id)
 {
-    return block_id < p_oram->allocated_ub;
+    return block_id < ORAM_ALLOCATED_UB(*p_oram);
 }
 
 static oram* _create(size_t num_levels, size_t num_blocks, size_t stash_overflow_size, entropy_func getentropy) {
@@ -42,19 +53,19 @@ static oram* _create(size_t num_levels, size_t num_blocks, size_t stash_overflow
 
     oram *oram;
     CHECK(oram = calloc(1, sizeof(*oram)));
-    oram->bucket_store = bucket_store_create(num_levels);
+    ORAM_BUCKET_STORE(*oram) = bucket_store_create(num_levels);
     
-    oram->num_levels = bucket_store_num_levels(oram->bucket_store);
-    oram->capacity_blocks = num_blocks; 
+    ORAM_NUM_LEVELS(*oram) = bucket_store_num_levels(ORAM_BUCKET_STORE(*oram));
+    ORAM_CAPACITY_BLOCKS(*oram) = num_blocks; 
 
-    oram->position_map = position_map_create(num_blocks, bucket_store_num_leaves(oram->bucket_store), stash_overflow_size, getentropy);
-    oram->stash = stash_create(oram->num_levels, stash_overflow_size);
-    oram->path = tree_path_create(0, bucket_store_root(oram->bucket_store));
-    oram->getentropy = getentropy;
+    ORAM_POSITION_MAP(*oram) = position_map_create(num_blocks, bucket_store_num_leaves(ORAM_BUCKET_STORE(*oram)), stash_overflow_size, getentropy);
+    ORAM_STASH(*oram) = stash_create(ORAM_NUM_LEVELS(*oram), stash_overflow_size);
+    ORAM_PATH(*oram) = tree_path_create(0, bucket_store_root(ORAM_BUCKET_STORE(*oram)));
+    ORAM_GETENTROPY(*oram) = getentropy;
 
-
-    oram->statistics.recursion_depth = position_map_recursion_depth(oram->position_map);
-    //TEST_LOG("create ORAM capacity_blocks: %zu bucket_store leaves: %zu", oram->capacity_blocks, bucket_store_num_leaves(oram->bucket_store));
+    ORAM_STATISTICS(*oram) = calloc(1, sizeof(oram_statistics));
+    ((oram_statistics*)ORAM_STATISTICS(*oram))->recursion_depth = position_map_recursion_depth(ORAM_POSITION_MAP(*oram));
+    //TEST_LOG("create ORAM capacity_blocks: %zu bucket_store leaves: %zu", ORAM_CAPACITY_BLOCKS(*oram), bucket_store_num_leaves(ORAM_BUCKET_STORE(*oram)));
 
     return oram;
 
@@ -105,31 +116,31 @@ void oram_destroy(oram *oram)
     // Acceptable if: this is not executed in an oram_access
     if (oram)
     {
-        bucket_store_destroy(oram->bucket_store);
-        position_map_destroy(oram->position_map);
-        stash_destroy(oram->stash);
-        tree_path_destroy(oram->path);
+        bucket_store_destroy(ORAM_BUCKET_STORE(*oram));
+        position_map_destroy(ORAM_POSITION_MAP(*oram));
+        stash_destroy(ORAM_STASH(*oram));
+        tree_path_destroy(ORAM_PATH(*oram));
         free(oram);
     }
 }
 
 void oram_clear(oram *oram)
 {
-    bucket_store_clear(oram->bucket_store);
-    stash_clear(oram->stash);
-    oram->allocated_ub = 0;
-    oram->statistics = (oram_statistics){ .max_stash_overflow_count = 0 };
+    bucket_store_clear(ORAM_BUCKET_STORE(*oram));
+    stash_clear(ORAM_STASH(*oram));
+    ORAM_ALLOCATED_UB(*oram) = 0;
+    ((oram_statistics*)ORAM_STATISTICS(*oram))->max_stash_overflow_count = 0;
     // The position map has random placements so we do not need to clear these.
 }
 
 size_t oram_block_size(const oram *oram)
 {
-    return bucket_store_block_data_size(oram->bucket_store);
+    return bucket_store_block_data_size(ORAM_BUCKET_STORE(*oram));
 }
 
 size_t oram_capacity_blocks(const oram *oram)
 {
-    return oram->capacity_blocks;
+    return ORAM_CAPACITY_BLOCKS(*oram);
 }
 
 size_t oram_size_bytes(size_t num_levels, size_t num_blocks, size_t stash_overflow_size) {
@@ -145,21 +156,24 @@ size_t oram_size_bytes(size_t num_levels, size_t num_blocks, size_t stash_overfl
 static u64 random_mod_by_pow_of_2(oram *oram, u64 modulus)
 {
     uint64_t buf[1];
-    oram->getentropy(buf, sizeof(buf));
+    entropy_func getrandom = (entropy_func)(uintptr_t)(ORAM_GETENTROPY(*oram));
+    getrandom(buf, sizeof(buf));
     return buf[0] & (modulus - 1);
 }
 
 static void oram_collect_statistics(oram* oram) {
     double tenthousandth_root_one_half = 0.99993068768415357;
-    size_t stash_size = stash_num_overflow_blocks(oram->stash);
-    ++oram->statistics.access_count;
-    oram->statistics.stash_overflow_count = stash_size;
-    oram->statistics.sum_stash_overflow_count += stash_size;
-    oram->statistics.stash_overflow_ema10k = (1.0 - tenthousandth_root_one_half) * stash_size + tenthousandth_root_one_half * oram->statistics.stash_overflow_ema10k;
+    size_t stash_size = stash_num_overflow_blocks(ORAM_STASH(*oram));
+    ++((oram_statistics*)ORAM_STATISTICS(*oram))->access_count;
+    ((oram_statistics*)ORAM_STATISTICS(*oram))->stash_overflow_count = stash_size;
+    ((oram_statistics*)ORAM_STATISTICS(*oram))->sum_stash_overflow_count += stash_size;
+    ((oram_statistics*)ORAM_STATISTICS(*oram))->stash_overflow_ema10k = (1.0 - tenthousandth_root_one_half) * stash_size + tenthousandth_root_one_half * ((oram_statistics*)ORAM_STATISTICS(*oram))->stash_overflow_ema10k;
     
-    oram->statistics.max_stash_overflow_count = U64_TERNARY(stash_size > oram->statistics.max_stash_overflow_count, stash_size, oram->statistics.max_stash_overflow_count);
+    ((oram_statistics*)ORAM_STATISTICS(*oram))->max_stash_overflow_count = U64_TERNARY(
+        stash_size > ((oram_statistics*)ORAM_STATISTICS(*oram))->max_stash_overflow_count, stash_size, ((oram_statistics*)ORAM_STATISTICS(*oram))->max_stash_overflow_count
+    );
 #ifdef IS_TEST
-    if(stash_size > oram->statistics.max_stash_overflow_count) {
+    if(stash_size > ((oram_statistics*)ORAM_STATISTICS(*oram))->max_stash_overflow_count) {
         //TEST_LOG("ORAM stash size increase: %zu", stash_size);
     }
 #endif // IS_TEST
@@ -178,9 +192,9 @@ static void oram_collect_statistics(oram* oram) {
  */
 static void oram_read_path_for_block(oram* oram, const tree_path* path, u64 target_block_id, block *target, u64 new_position) {
     for(size_t i = 0; i < TREE_PATH_LENGTH(*path); ++i) {
-        stash_add_path_bucket(oram->stash, oram->bucket_store, TREE_PATH_VALUES(*path)[i], target_block_id, target);
+        stash_add_path_bucket(ORAM_STASH(*oram), ORAM_BUCKET_STORE(*oram), TREE_PATH_VALUES(*path)[i], target_block_id, target);
     }
-    stash_scan_overflow_for_target(oram->stash, target_block_id, target);
+    stash_scan_overflow_for_target(ORAM_STASH(*oram), target_block_id, target);
 
     BLOCK_ID(*target) = target_block_id;
     BLOCK_POSITION(*target) = new_position;
@@ -212,28 +226,28 @@ static error_t oram_access(
 {
     block target_block = {EMPTY_BLOCK_ID, UINT64_MAX};
     memset(BLOCK_DATA(target_block), 255, BLOCK_DATA_SIZE_BYTES);
-    size_t max_position = bucket_store_num_leaves(oram->bucket_store);
+    size_t max_position = bucket_store_num_leaves(ORAM_BUCKET_STORE(*oram));
 
     u64 new_position = random_mod_by_pow_of_2(oram, max_position);
     u64 x = 0;
-    RETURN_IF_ERROR(position_map_read_then_set(oram->position_map, block_id, new_position, &x));
+    RETURN_IF_ERROR(position_map_read_then_set(ORAM_POSITION_MAP(*oram), block_id, new_position, &x));
     // bucket locations are always even
     x *= 2;
 
-    tree_path_update(oram->path, x);
-    tree_path* path = oram->path;
+    tree_path_update(ORAM_PATH(*oram), x);
+    tree_path* path = ORAM_PATH(*oram);
 
     oram_read_path_for_block(oram, path, block_id, &target_block, new_position * 2);
     RETURN_IF_ERROR(perform_access_op(&target_block, accessor, accessor_args));
 
-    RETURN_IF_ERROR(stash_add_block(oram->stash, &target_block));
+    RETURN_IF_ERROR(stash_add_block(ORAM_STASH(*oram), &target_block));
 
-    stash_build_path(oram->stash, oram->path);
+    stash_build_path(ORAM_STASH(*oram), ORAM_PATH(*oram));
 
     for (size_t i = 0; i < TREE_PATH_LENGTH(*path); ++i)
     {
         u64 bucket_id = TREE_PATH_VALUES(*path)[i];
-        bucket_store_write_bucket_blocks(oram->bucket_store, bucket_id, stash_path_blocks(oram->stash) + i * BLOCKS_PER_BUCKET);
+        bucket_store_write_bucket_blocks(ORAM_BUCKET_STORE(*oram), bucket_id, stash_path_blocks(ORAM_STASH(*oram)) + i * BLOCKS_PER_BUCKET);
     }
     oram_collect_statistics(oram);
     return err_SUCCESS;
@@ -326,42 +340,43 @@ error_t oram_put_partial(oram *oram, u64 block_id, size_t start, size_t len, u64
 u64 oram_allocate_block(oram *oram)
 {
     // Acceptable if: not executed in an oram_access
-    if (oram->allocated_ub < oram->capacity_blocks)
+    if (ORAM_ALLOCATED_UB(*oram) < ORAM_CAPACITY_BLOCKS(*oram))
     {
-        return (oram->allocated_ub)++;
+        return (ORAM_ALLOCATED_UB(*oram))++;
     }
     return UINT64_MAX;
 }
 u64 oram_allocate_contiguous(oram *oram, size_t num_blocks)
 {
-    register size_t requested_ub = oram->allocated_ub + num_blocks;
+    register size_t requested_ub = ORAM_ALLOCATED_UB(*oram) + num_blocks;
     // Acceptable if: not executed in an oram_access
-    if (requested_ub <= oram->capacity_blocks)
+    if (requested_ub <= ORAM_CAPACITY_BLOCKS(*oram))
     {
-        register size_t next_block = oram->allocated_ub;
-        oram->allocated_ub = requested_ub;
+        register size_t next_block = ORAM_ALLOCATED_UB(*oram);
+        ORAM_ALLOCATED_UB(*oram) = requested_ub;
         return next_block;
     }
     return UINT64_MAX;
 }
 
 const oram_statistics* oram_report_statistics(oram* oram) {
-    const oram_statistics* pos_map_stats = position_map_oram_statistics(oram->position_map);
+    const oram_statistics* pos_map_stats = position_map_oram_statistics(ORAM_POSITION_MAP(*oram));
     // Acceptable if: not executed in an oram_access
     if(pos_map_stats) {
-        oram->statistics.posmap_stash_overflow_count = pos_map_stats->stash_overflow_count;
-        oram->statistics.posmap_max_stash_overflow_count = pos_map_stats->max_stash_overflow_count;
-        oram->statistics.posmap_sum_stash_overflow_count = pos_map_stats->sum_stash_overflow_count;
-        oram->statistics.posmap_stash_overflow_ema10k = pos_map_stats->stash_overflow_ema10k;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_stash_overflow_count = pos_map_stats->stash_overflow_count;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_max_stash_overflow_count = pos_map_stats->max_stash_overflow_count;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_sum_stash_overflow_count = pos_map_stats->sum_stash_overflow_count;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_stash_overflow_ema10k = pos_map_stats->stash_overflow_ema10k;
     } else {
-        oram->statistics.posmap_stash_overflow_count = 0;
-        oram->statistics.posmap_max_stash_overflow_count = 0;
-        oram->statistics.posmap_sum_stash_overflow_count = 0;
-        oram->statistics.posmap_stash_overflow_ema10k = 0;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_stash_overflow_count = 0;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_max_stash_overflow_count = 0;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_sum_stash_overflow_count = 0;
+        ((oram_statistics*)ORAM_STATISTICS(*oram))->posmap_stash_overflow_ema10k = 0;
     }
-    return &(oram->statistics);
+    return ORAM_STATISTICS(*oram);
 }
 
+#define IS_TEST
 #ifdef IS_TEST
 #include <stdio.h>
 #include <math.h>
@@ -377,8 +392,8 @@ void oram_clear_jazz(oram *oram);
 void print_oram(const oram *oram)
 {
     printf("ORAM state: bucket cap (B): %zu position_map_cap (entries): %zu\n",
-           bucket_store_capacity_bytes(oram->bucket_store),
-           position_map_capacity(oram->position_map));
+           bucket_store_capacity_bytes(ORAM_BUCKET_STORE(*oram)),
+           position_map_capacity(ORAM_POSITION_MAP(*oram)));
 }
 
 static size_t expected_num_blocks_for_capacity(size_t capacity) {
@@ -411,11 +426,11 @@ int init_oram_test()
 
     size_t expected_block_size = BLOCK_DATA_SIZE_QWORDS;
     size_t expected_num_blocks = expected_num_blocks_for_capacity(capacity);
-    size_t store_capacity = bucket_store_capacity_bytes(oram->bucket_store) / 8;
+    size_t store_capacity = bucket_store_capacity_bytes(ORAM_BUCKET_STORE(*oram)) / 8;
 
     TEST_ASSERT(!(store_capacity < (capacity/2) || store_capacity > capacity));
-    TEST_ASSERT(bucket_store_block_data_size(oram->bucket_store) == expected_block_size);
-    TEST_ASSERT(position_map_capacity(oram->position_map) == expected_num_blocks);
+    TEST_ASSERT(bucket_store_block_data_size(ORAM_BUCKET_STORE(*oram)) == expected_block_size);
+    TEST_ASSERT(position_map_capacity(ORAM_POSITION_MAP(*oram)) == expected_num_blocks);
 
     oram_destroy(oram);
     return err_SUCCESS;
@@ -429,11 +444,11 @@ int init_odd_capacity_test()
 
     size_t expected_block_size = BLOCK_DATA_SIZE_QWORDS;
     size_t expected_num_blocks = expected_num_blocks_for_capacity(capacity);
-    size_t store_capacity = bucket_store_capacity_bytes(oram->bucket_store) / 8;
+    size_t store_capacity = bucket_store_capacity_bytes(ORAM_BUCKET_STORE(*oram)) / 8;
 
     TEST_ASSERT(!(store_capacity < (capacity/2) || store_capacity > capacity));
-    TEST_ASSERT(bucket_store_block_data_size(oram->bucket_store) == expected_block_size);
-    TEST_ASSERT(position_map_capacity(oram->position_map) == expected_num_blocks);
+    TEST_ASSERT(bucket_store_block_data_size(ORAM_BUCKET_STORE(*oram)) == expected_block_size);
+    TEST_ASSERT(position_map_capacity(ORAM_POSITION_MAP(*oram)) == expected_num_blocks);
 
     oram_destroy(oram);
     return err_SUCCESS;
@@ -639,10 +654,10 @@ int test_oram_clears_stash() {size_t capacity = 1 << 20;
     {
         BLOCK_DATA(b)[j] = j + 1;
     }
-    RETURN_IF_ERROR(stash_add_block(oram0->stash, &b));
-    stash_add_block_jazz(oram1->stash, &b);
-    TEST_ASSERT(stash_num_overflow_blocks(oram0->stash) == 1);
-    TEST_ASSERT(stash_num_overflow_blocks(oram1->stash) == 1);
+    RETURN_IF_ERROR(stash_add_block(ORAM_STASH(*oram0), &b));
+    stash_add_block_jazz(ORAM_STASH(*oram1), &b);
+    TEST_ASSERT(stash_num_overflow_blocks(ORAM_STASH(*oram0)) == 1);
+    TEST_ASSERT(stash_num_overflow_blocks(ORAM_STASH(*oram1)) == 1);
 
     RETURN_IF_ERROR(oram_get(oram0, 1000, buf0));
     RETURN_IF_ERROR(oram_get(oram1, 1000, buf1));
@@ -659,8 +674,8 @@ int test_oram_clears_stash() {size_t capacity = 1 << 20;
     // reallocate the blocks so we can get it without error
     oram_allocate_contiguous(oram0, 1330);
     oram_allocate_contiguous(oram1, 1330);
-    TEST_ASSERT(stash_num_overflow_blocks(oram0->stash) == 0); RETURN_IF_ERROR(oram_get(oram0, 1000, buf0));
-    TEST_ASSERT(stash_num_overflow_blocks(oram1->stash) == 0); RETURN_IF_ERROR(oram_get(oram1, 1000, buf1));
+    TEST_ASSERT(stash_num_overflow_blocks(ORAM_STASH(*oram0)) == 0); RETURN_IF_ERROR(oram_get(oram0, 1000, buf0));
+    TEST_ASSERT(stash_num_overflow_blocks(ORAM_STASH(*oram1)) == 0); RETURN_IF_ERROR(oram_get(oram1, 1000, buf1));
 
     // Now check that the data we got is clear
     for (size_t j = 0; j < BLOCK_DATA_SIZE_QWORDS; ++j)

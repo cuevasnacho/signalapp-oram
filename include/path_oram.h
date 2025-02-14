@@ -4,10 +4,11 @@
 #ifndef CDS_ORAM_H
 #define CDS_ORAM_H 1
 
-#include "../include/util.h"
-#include "../include/statistics.h"
+#include "util.h"
+#include "statistics.h"
 
-typedef struct oram oram;
+// typedef struct oram oram;
+typedef u64 oram[9];
 
 typedef error_t (*accessor_func)(u64* rw_block_data, void* args);
 
