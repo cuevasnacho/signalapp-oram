@@ -9,7 +9,8 @@
 #include "position_map.h"
 #include "tree_path.h"
 
-typedef struct stash stash;
+// typedef struct stash stash;
+typedef u64 stash[8];
 
 /**
  * @brief A `stash` is used internally by Path ORAM to cache blocks that are being moved
