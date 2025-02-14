@@ -238,15 +238,15 @@ static void stash_assign_block_to_bucket(stash* stash, const tree_path* path, bl
     // the block cannot be assigned to this level or higher 
     size_t max_level = U64_TERNARY(is_overflow_block, STASH_PATH_LENGTH(*stash), (index / BLOCKS_PER_BUCKET) + 1);
     size_t assignment_index = U64_TERNARY(is_overflow_block,  BLOCKS_PER_BUCKET * STASH_PATH_LENGTH(*stash)  + index, index);
-    block* block = STASH_PATH_BLOCKS(*stash) + assignment_index;
+    block* assigned_block = ((block*)STASH_PATH_BLOCKS(*stash)) + assignment_index;
 
     bool is_assigned = false;
     for(u64 level = 0; level < max_level; ++level) {
         u64 bucket_occupancy = ((u64*)STASH_BUCKET_OCCUPANCY(*stash))[level];
         u64 bucket_id = TREE_PATH_VALUES(*path)[level];
-        bool is_valid = tree_path_lower_bound(bucket_id) <= BLOCK_POSITION(*block) & tree_path_upper_bound(bucket_id) >= BLOCK_POSITION(*block);
+        bool is_valid = tree_path_lower_bound(bucket_id) <= BLOCK_POSITION(*assigned_block) & tree_path_upper_bound(bucket_id) >= BLOCK_POSITION(*assigned_block);
         bool bucket_has_room = bucket_occupancy < BLOCKS_PER_BUCKET;
-        bool cond = is_valid & bucket_has_room & !is_assigned & BLOCK_ID(*block) != EMPTY_BLOCK_ID;
+        bool cond = is_valid & bucket_has_room & !is_assigned & BLOCK_ID(*assigned_block) != EMPTY_BLOCK_ID;
 
         // If `cond` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
         // for this position.
