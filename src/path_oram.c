@@ -120,6 +120,7 @@ void oram_destroy(oram *oram)
         position_map_destroy(ORAM_POSITION_MAP(*oram));
         stash_destroy(ORAM_STASH(*oram));
         tree_path_destroy(ORAM_PATH(*oram));
+        free(ORAM_STATISTICS(*oram));
         free(oram);
     }
 }
