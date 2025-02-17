@@ -364,6 +364,27 @@ static void bitonic_sort(block* blocks, u64* block_level_assignments, size_t lb,
     }
 }
 
+static inline size_t min(size_t a, size_t b) {
+    return (a < b) ? a : b;
+}
+
+static void odd_even_msort(block* blocks, u64 *block_level_assignments, size_t n) {
+    for (size_t p = 1; p < n; p <<= 1) {
+        for (size_t k = p; k >= 1; k >>= 1) {
+            size_t mod_kp = k % p;
+            for (size_t j = mod_kp; j < n-k; j += 2*k) {
+                for (size_t i = 0; i < min(k, n-j-k); ++i) {
+                    if (((i+j) / (p*2)) == ((i+j+k) / (p*2))) {
+                        bool cond = comp_blocks(blocks, block_level_assignments, i+j, i+j+k);
+                        cond_swap_blocks(cond, blocks + i + j, blocks + i + j + k);
+                        cond_obv_swap_u64(cond, block_level_assignments + i + j, block_level_assignments + i + j + k);
+                    }
+                }
+            }
+        }
+    }
+  }
+
 void print_bucket_assignments(const stash* stash) {
     for(size_t i = 0; i < STASH_NUM_BLOCKS(*stash); ++i) {
         fprintf(stderr, "%zu: block: %" PRIu64 " pos: %" PRIu64 " assignment: %" PRIu64 "\n",
@@ -374,7 +395,7 @@ void print_bucket_assignments(const stash* stash) {
 void stash_build_path(stash* stash, const tree_path* path) {
     size_t overflow_size = stash_overflow_ub(stash);
     stash_assign_buckets(stash, path);
-    bitonic_sort((block*)STASH_BLOCKS(*stash), STASH_BUCKET_ASSIGNMENTS(*stash), 0, BLOCKS_PER_BUCKET * STASH_PATH_LENGTH(*stash) + overflow_size, true);
+    odd_even_msort((block*)STASH_BLOCKS(*stash), STASH_BUCKET_ASSIGNMENTS(*stash), BLOCKS_PER_BUCKET * STASH_PATH_LENGTH(*stash) + overflow_size);
     // print_bucket_assignments(stash);
 }
 
