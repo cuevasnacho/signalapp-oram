@@ -377,7 +377,6 @@ const oram_statistics* oram_report_statistics(oram* oram) {
     return ORAM_STATISTICS(*oram);
 }
 
-#define IS_TEST
 #ifdef IS_TEST
 #include <stdio.h>
 #include <math.h>
