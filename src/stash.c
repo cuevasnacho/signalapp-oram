@@ -383,7 +383,7 @@ static void odd_even_msort(block* blocks, u64 *block_level_assignments, size_t n
             }
         }
     }
-  }
+}
 
 void print_bucket_assignments(const stash* stash) {
     for(size_t i = 0; i < STASH_NUM_BLOCKS(*stash); ++i) {
