@@ -18,5 +18,6 @@ Since the capacities are fixed, some of them have been modified thus every test 
 ### Tasks:
 1) change structs for arrays to ensure fixed size -> remove defines when done
 2) make it pass security checks (not sorter yet)
-3) double check if stash length changes
+3) double check if stash length changes:
+  - update: when stash is extended, it increases by `STASH_GROWTH_INCREMENT` in overflow_capacity. This means that the sorter must support dynamic lengths.
 4) check [batcher odd even sort](https://en.wikipedia.org/wiki/Batcher_odd%E2%80%93even_mergesort#cite_note-4)
