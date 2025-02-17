@@ -54,7 +54,7 @@ static oram* _create(size_t num_levels, size_t num_blocks, size_t stash_overflow
     oram *oram;
     CHECK(oram = calloc(1, sizeof(*oram)));
     ORAM_BUCKET_STORE(*oram) = bucket_store_create(num_levels);
-    
+
     ORAM_NUM_LEVELS(*oram) = bucket_store_num_levels(ORAM_BUCKET_STORE(*oram));
     ORAM_CAPACITY_BLOCKS(*oram) = num_blocks; 
 

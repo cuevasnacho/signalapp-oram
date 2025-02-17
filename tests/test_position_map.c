@@ -140,7 +140,7 @@ void public_position_map_tests()
 {
     RUN_TEST(test_position_map_lifecycle());
     RUN_TEST(test_position_map_recursion_depth());
-    // RUN_TEST(test_position_map_initial_data());
+    RUN_TEST(test_position_map_initial_data());
     RUN_TEST(test_position_map_put_get());
     RUN_TEST(test_position_map_put_get_repeat());
 }

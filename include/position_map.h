@@ -9,7 +9,7 @@
 #define POSITION_MAP_NOT_PRESENT UINT64_MAX
 #define SCAN_THRESHOLD (1 << 14)
 
-typedef struct position_map position_map;
+typedef u64 position_map[6];
 
 /**
  * @brief The `position_map` is used internally by an ORAM to keep track of the current physical
