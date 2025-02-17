@@ -42,6 +42,8 @@ fn random_mod_by_pow_of_2(
  * @param target On output, block with ID `target_block_id` will be available here
  * @param new_position Position for the target block after this access
  */
+
+ inline
 fn oram_read_path_for_block(
   reg u64 oram path,
   reg u64 target_block_id,
@@ -67,6 +69,7 @@ fn oram_read_path_for_block(
   (u64)[target + 8] = new_position;
 }
 
+inline
 fn _i_oram_read_path_for_block(
   reg u64 oram path,
   reg u64 target_block_id,
@@ -157,55 +160,98 @@ fn _i_write_accessor_full(
   return block_data;
 }
 
-// inline
-// fn write_accessor(
-//   reg u64 block_data,
-//   reg u64 vargs
-// )
-// {
-//   reg u64 in_data_start in_data_len in_data out_data;
-//   reg u64 tmp addr cons;
-//   reg u8 c1 c2;
-//   reg bool b;
-//   inline int i;
+inline
+fn write_accessor_partial(
+  reg u64 block_data,
+  reg u64 in_data_start in_data_len,
+  reg u64 in_data out_data
+)
+{
+  reg u64 tmp addr cons;
+  reg u8 c1 c2;
+  reg bool b;
+  inline int i;
 
-//   block_data = block_data;
-//   vargs = vargs;
-//   out_data = [vargs + 8 * 3];
-//   if (out_data != 0) {
-//     read_accessor(block_data, out_data);
-//   }
+  block_data = block_data;
+  if (out_data != 0) {
+    read_accessor(block_data, out_data);
+  }
 
-//   in_data_start = [vargs];
-//   in_data_len = [vargs + 8];
-//   in_data = [vargs + 8 * 2];
+  cons = in_data_start % in_data_len;
+  cons = #LEA(in_data_len - cons);
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    // source_index
+    tmp = #LEA(cons + i);
+    tmp = tmp; in_data_len = in_data_len;
+    tmp = tmp % in_data_len;
+    tmp = tmp; in_data_len = in_data_len;
 
-//   cons = in_data_start % in_data_len;
-//   cons = #LEA(in_data_len - cons);
-//   for i = 0 to BLOCK_DATA_SIZE_QWORDS
-//   {
-//     // source_index
-//     tmp = #LEA(cons + i);
-//     tmp = tmp; in_data_len = in_data_len;
-//     tmp = tmp % in_data_len;
-//     tmp = tmp; in_data_len = in_data_len;
+    // address
+    tmp *= 8;
+    addr = #LEA(tmp + in_data);
 
-//     // address
-//     tmp *= 8;
-//     addr = #LEA(tmp + in_data);
+    // cond
+    b = i >= in_data_start;
+    c1 = #SETcc(b);
+    tmp = #LEA(in_data_start + in_data_len);
+    b = i < tmp;
+    c2 = #SETcc(b);
+    c1 &= c2;
 
-//     // cond
-//     b = i >= in_data_start;
-//     c1 = #SETcc(b);
-//     tmp = #LEA(in_data_start + in_data_len);
-//     b = i < tmp;
-//     c2 = #SETcc(b);
-//     c1 &= c2;
+    cond_obv_cpy_u64(c1, block_data, addr);
+    block_data = #LEA(block_data + 8);
+  }
+}
 
-//     cond_obv_cpy_u64(c1, block_data, addr);
-//     block_data = #LEA(block_data + 8);
-//   }
-// }
+inline
+fn _i_write_accessor_partial(
+  reg ptr u64[BLOCK_DATA_SIZE_QWORDS] block_data,
+  reg u64 in_data_start in_data_len,
+  reg u64 in_data out_data
+) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
+{
+  reg u64 tmp tmp0 addr cons;
+  reg u8 c1 c2;
+  reg bool b;
+  inline int i;
+
+  () = #spill(in_data);
+  if (out_data != 0) {
+    block_data = _i_read_accessor(block_data, out_data);
+  }
+
+  cons = in_data_start;
+  cons = cons % in_data_len;
+  tmp = in_data_len;
+  tmp -= cons;
+  cons = tmp;
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    // source_index
+    tmp = #LEA(cons + i);
+    tmp = tmp % in_data_len;
+
+    // address
+    tmp *= 8;
+    () = #unspill(in_data);
+    addr = #LEA(tmp + in_data);
+
+    // cond
+    b = in_data_start <= i;
+    c1 = #SETcc(b);
+    tmp = #LEA(in_data_start + in_data_len);
+    b = tmp > i;
+    c2 = #SETcc(b);
+    c1 &= c2;
+
+    tmp = [addr];
+    tmp0 = block_data[i];
+    block_data[i] = ternary(c1, addr, tmp0);
+  }
+  return block_data;
+}
+
 
 inline
 fn oram_access_read(
@@ -238,8 +284,8 @@ fn oram_access_read(
 
   new_position *= 2;
   target_block = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position);
-  target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
   () = #spill(path);
+  target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
   stash = [oram + 8 * STASH_ADDR];
   target_block = _i_stash_add_block(stash, target_block);
@@ -291,8 +337,8 @@ fn oram_access_write(
 
   new_position *= 2;
   target_block = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position);
-  target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_write_accessor_full(target_block[2:BLOCK_DATA_SIZE_QWORDS], in_data);
   () = #spill(path);
+  target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_write_accessor_full(target_block[2:BLOCK_DATA_SIZE_QWORDS], in_data);
 
   stash = [oram + 8 * STASH_ADDR];
   target_block = _i_stash_add_block(stash, target_block);
@@ -310,6 +356,65 @@ fn oram_access_write(
     bucket_id = [path + 8 + 8 * i];
     bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks);
     path_blocks += (64u)offset;
+  }
+}
+
+inline
+fn oram_access_write_partial(
+  reg u64 oram,
+  reg u64 block_id start len,
+  reg u64 data prev_data
+)
+{
+  stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block;
+  // standard variables
+  reg u64 max_position new_position x;
+  // pointer variables
+  reg u64 stash path position_map bucket_store path_blocks;
+  // temporary variables
+  reg u64 bucket_id;
+  inline int i;
+
+  () = #spill(block_id, start, len, data, prev_data);
+  target_block = target_block_s;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
+  max_position = (64u)(1 << (PATH_LENGTH - 1));
+
+  new_position = random_mod_by_pow_of_2(max_position);
+  new_position = new_position;
+  position_map = [oram + 8 * POSITION_MAP_ADDR];
+  () = #unspill(block_id);
+  x = position_map_read_then_set(position_map, block_id, new_position);
+  () = #spill(block_id);
+  x *= 2;
+
+  path = [oram + 8 * PATH_ADDR];
+  tree_path_update(path, x);
+
+  new_position *= 2;
+  () = #unspill(block_id);
+  target_block = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position);
+  () = #spill(path, block_id);
+  ()= #unspill(start, len, data, prev_data);
+  target_block[2:BLOCK_DATA_SIZE_QWORDS] =
+    _i_write_accessor_partial(target_block[2:BLOCK_DATA_SIZE_QWORDS], start, len, data, prev_data);
+
+  stash = [oram + 8 * STASH_ADDR];
+  target_block = _i_stash_add_block(stash, target_block);
+
+  () = #spill(oram);
+  () = #unspill(path);
+  stash_build_path(stash, path);
+  () = #unspill(oram);
+
+  bucket_store = [oram];
+  path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
+  for i = 0 to PATH_LENGTH
+  {
+    bucket_id = [path + 8 + 8 * i];
+    bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks);
+    path_blocks += BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   }
 }
 
