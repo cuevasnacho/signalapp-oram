@@ -258,11 +258,44 @@ fn _i_write_accessor_partial(
 
     tmp = [addr];
     tmp0 = block_data[i];
-    block_data[i] = ternary(c1, addr, tmp0);
+    block_data[i] = ternary(c1, tmp, tmp0);
   }
   return block_data;
 }
 
+inline
+fn _i_write_accessor_partial_len1(
+  reg ptr u64[BLOCK_DATA_SIZE_QWORDS] block_data,
+  reg u64 in_data_start in_data,
+  reg u64 out_data
+) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
+{
+  reg u64 tmp tmp0 addr cons;
+  reg u8 c1 c2;
+  reg bool b;
+  inline int i;
+
+  () = #spill(in_data);
+  if (out_data != 0) {
+    block_data = _i_read_accessor(block_data, out_data);
+  }
+
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    // cond
+    b = in_data_start <= i;
+    c1 = #SETcc(b);
+    tmp = #LEA(in_data_start + 1);
+    b = tmp > i;
+    c2 = #SETcc(b);
+    c1 &= c2;
+
+    tmp = in_data;
+    tmp0 = block_data[i];
+    block_data[i] = ternary(c1, tmp, tmp0);
+  }
+  return block_data;
+}
 
 inline
 fn oram_access_read(
@@ -308,12 +341,10 @@ fn oram_access_read(
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
   stash = [oram + 8 * STASH_ADDR];
-  () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
   () = #unspill(path);
   stash_build_path(stash, path);
-  () = #unspill(oram);
 
   path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
@@ -399,8 +430,8 @@ fn oram_access_write(
 inline
 fn oram_access_write_partial(
   reg u64 oram,
-  reg u64 block_id start len,
-  reg u64 data prev_data
+  reg u64 block_id start len data,
+  reg u64 prev_data
 )
 {
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
@@ -438,9 +469,9 @@ fn oram_access_write_partial(
   () = #unspill(block_id);
   target_block = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position);
   () = #spill(path, block_id);
-  ()= #unspill(start, len, data, prev_data);
+  ()= #unspill(start, data, prev_data);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] =
-    _i_write_accessor_partial(target_block[2:BLOCK_DATA_SIZE_QWORDS], start, len, data, prev_data);
+    _i_write_accessor_partial_len1(target_block[2:BLOCK_DATA_SIZE_QWORDS], start, data, prev_data);
 
   stash = [oram + 8 * STASH_ADDR];
   target_block = _i_stash_add_block(stash, target_block);

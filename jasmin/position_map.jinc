@@ -2,6 +2,61 @@ require "consts.jinc"
 require "params.jinc"
 require "util.jinc"
 
+// oram implementation
+inline
+fn block_id_for_index(
+  reg u64 oram_position_map,
+  reg u64 index
+) -> reg u64
+{
+  reg u64 base_block_id tmp;
+  base_block_id = [oram_position_map + 3 * 8];
+  index = index / BLOCK_DATA_SIZE_QWORDS;
+  base_block_id += index;
+  return base_block_id;
+}
+
+inline
+fn oram_position_map_get(
+  reg u64 oram_position_map,
+  reg u64 block_id,
+  reg u64 position
+)
+{
+  reg u64 buf oram block_id_for_idx;
+  reg u64 tmp;
+
+  oram = [oram_position_map];
+  block_id_for_idx = block_id_for_index(oram_position_map, block_id);
+  buf = [oram_position_map + 4 * 8];
+  oram_access_read(oram, block_id_for_idx, buf);
+
+  tmp = block_id % BLOCK_DATA_SIZE_QWORDS;
+  tmp = (64u)[buf + 8 * tmp];
+  (u64)[position] = tmp;
+}
+
+inline
+fn oram_position_map_set(
+  reg u64 oram_position_map,
+  reg u64 block_id position
+) -> reg u64
+{
+  reg u64 buf oram block_id_for_idx idx_in_block len_to_put;
+  reg u64 tmp;
+
+  oram = [oram_position_map];
+  block_id_for_idx = block_id_for_index(oram_position_map, block_id);
+  buf = [oram_position_map + 4 * 8];
+
+  idx_in_block = block_id % BLOCK_DATA_SIZE_QWORDS;
+  len_to_put = 1;
+  oram_access_write_partial(oram, block_id_for_idx, idx_in_block, len_to_put, position, buf);
+
+  tmp = (64u)[buf + 8 * idx_in_block];
+  return tmp;
+}
+
 // scan implementation
 inline
 fn scan_position_map_get(
@@ -65,10 +120,13 @@ fn position_map_get(
   reg u64 position
 )
 {
-  reg u64 data;
-  if (POSITION_MAP_SIZE < SCAN_THRESHOLD) {
-    data = [position_map + 8 * 3];  // *data
+  reg u64 data t;
+  t = (64u)[position_map];
+  data = [position_map + 8 * 3];  // *data
+  if (t == 0) {
     scan_position_map_get(data, block_id, position);
+  } else {
+    oram_position_map_get(data, block_id, position);
   }
 }
 
@@ -76,16 +134,17 @@ inline
 fn position_map_read_then_set(
   reg u64 position_map,
   reg u64 block_id,
-  reg u64 position
+  reg u64 position,
+  reg u64 prev_position
 ) -> reg u64
 {
-  reg u64 x data;
-  if (POSITION_MAP_SIZE < SCAN_THRESHOLD) {
-    data = [position_map + 8 * 3];  // *data
+  reg u64 x data t;
+  t = (64u)[position_map];
+  data = [position_map + 8 * 3];  // *data
+  if (t == 0) {
     x = scan_position_map_set(data, block_id, position);
   } else {
-    // implement oram
-    x = 0;
+    x = oram_position_map_set(data, block_id, position);
   }
   return x;
 }
