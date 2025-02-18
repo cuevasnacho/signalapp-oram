@@ -85,8 +85,9 @@ fn tree_path_update(
   reg u64 leaf
 )
 {
-  reg u64 root_level root level offset;
-  root_level = PATH_LENGTH - 1;
+  reg u64 root_level root level offset length;
+  length = (64u)[t];
+  root_level = length - 1;
   root = ((64u)1 << root_level) - 1;
 
   level, offset = coords_for_val(leaf);

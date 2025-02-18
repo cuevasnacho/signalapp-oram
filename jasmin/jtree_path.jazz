@@ -3,6 +3,7 @@ require "tree_path.jinc"
 export
 fn tree_path_update_jazz(reg u64 tp leaf)
 {
+  tp = tp; leaf = leaf;
   tree_path_update(tp, leaf);
 }
 
