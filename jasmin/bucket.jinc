@@ -8,7 +8,7 @@ fn bucket_store_clear(
   reg u64 i bound data;
   i = 0;
   data = (64u)[bucket_store + 16];
-  bound = ((1 << PATH_LENGTH) - 1) * ENCRYPTED_BUCKET_SIZE;
+  bound = (64u)[bucket_store + 8];
   while (i < bound)
   {
     (u8)[data + i] = -1;
@@ -17,10 +17,14 @@ fn bucket_store_clear(
 }
 
 inline
-fn bucket_store_root() -> reg u64
+fn bucket_store_root(
+  reg u64 bucket_store
+) -> reg u64
 {
-  reg u64 r;
-  r = #SHL(1, PATH_LENGTH - 1);
+  reg u64 r length;
+
+  length = (64u)[bucket_store];
+  r = #SHL(1, length - 1);
   r -= 1;
   return r;
 }
