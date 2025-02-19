@@ -414,7 +414,7 @@ error_t stash_clear(stash* stash) {
 void cond_copy_block_jazz(bool cond, block* dst, const block* src);
 void cond_swap_blocks_jazz(bool cond, block* a, block* b);
 void stash_add_block_jazz(stash* stash, block* new_block);
-void selection_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
+void odd_even_msort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
 
 void stash_print(const stash *stash)
 {
@@ -482,23 +482,23 @@ int test_cond_cpy_block() {
 }
 
 int test_oblv_sort() {
-    size_t num_blocks = 32;
-    block blocks[32] = {0};
+    size_t num_blocks = 30;
+    block blocks[30] = {0};
     for (size_t i = 0; i < 20; i++) BLOCK_ID(blocks[i]) = i;
 
-    u64 bucket_assignments[32] = {
+    u64 bucket_assignments[30] = {
         0,7,UINT64_MAX,2,9,UINT64_MAX,4,11,UINT64_MAX,6,1,UINT64_MAX,8,3,UINT64_MAX,10,5,0,5,0
     };
 
-    block original_blocks[32], jazz_blocks[32];
-    u64 original_bucket_assignments[32], jazz_bucket_assignments[32];
+    block original_blocks[30], jazz_blocks[30];
+    u64 original_bucket_assignments[30], jazz_bucket_assignments[30];
     memcpy(original_blocks, blocks, sizeof(blocks));
     memcpy(jazz_blocks, blocks, sizeof(blocks));
     memcpy(original_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
     memcpy(jazz_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
 
     bitonic_sort(blocks, bucket_assignments, 0, num_blocks, true);
-    selection_sort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
+    odd_even_msort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
 
     for(size_t i = 1; i < num_blocks; ++i) {
         // check that it is sorted
