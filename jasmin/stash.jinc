@@ -23,7 +23,7 @@ fn stash_overflow_blocks(
 }
 
 // returns the index of the last nonempty blocks in overflow
-fn stash_overflow_ub(
+fn _stash_overflow_ub(
   reg u64 stash
 ) -> reg u64
 {
@@ -65,7 +65,7 @@ fn stash_num_overflow_blocks(
 }
 
 inline
-fn first_block_in_bucket_for_level(
+fn _first_block_in_bucket_for_level(
   reg u64 stash,
   reg u64 level
 ) -> reg u64
@@ -79,14 +79,14 @@ fn first_block_in_bucket_for_level(
 }
 
 inline
-fn cond_copy_block(
+fn _cond_copy_block(
   reg u8 cond,
   reg u64 dst src
 )
 {
   inline int i;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    cond_obv_cpy_u64(cond, dst, src);
+    _cond_obv_cpy_u64(cond, dst, src);
     dst = #LEA(dst + 8);
     src = #LEA(src + 8);
   }
@@ -103,7 +103,7 @@ fn _i_cond_copy_block(
   inline int i;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
     va = (64u)[dst];
-    tmp = ternary(cond, src[u64 i], va);
+    tmp = _ternary(cond, src[u64 i], va);
     (u64)[dst] = tmp;
     dst = #LEA(dst + 8);
   }
@@ -111,14 +111,14 @@ fn _i_cond_copy_block(
 }
 
 inline
-fn cond_swap_blocks(
+fn _cond_swap_blocks(
   reg u8 cond,
   reg u64 a b
 )
 {
   inline int i;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    cond_obv_swap_u64(cond, a, b);
+    _cond_obv_swap_u64(cond, a, b);
     a = #LEA(a + 8);
     b = #LEA(b + 8);
   }
@@ -135,9 +135,9 @@ fn _i_cond_swap_blocks(
   inline int i;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
     rb = (64u)[b];
-    tmp = ternary(cond, a[u64 i], rb);
+    tmp = _ternary(cond, a[u64 i], rb);
     (u64)[b] = tmp;
-    a[u64 i] = ternary(cond, rb, a[u64 i]);
+    a[u64 i] = _ternary(cond, rb, a[u64 i]);
     b = #LEA(b + 8);
   }
   return a;
@@ -157,14 +157,14 @@ fn stash_add_path_bucket(
   inline int i;
 
   lvl = tree_path_level(bucket_id);
-  bucket_blocks = first_block_in_bucket_for_level(stash, lvl);
+  bucket_blocks = _first_block_in_bucket_for_level(stash, lvl);
   bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_blocks);
   for i = 0 to BLOCKS_PER_BUCKET
   {
     bid = (64u)[bucket_blocks];
     cond = bid == target_block_id;
     c = #SETcc(cond);
-    cond_swap_blocks(c, target, bucket_blocks);
+    _cond_swap_blocks(c, target, bucket_blocks);
     bucket_blocks += 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
   }
 }
@@ -181,7 +181,7 @@ fn _i_stash_add_path_bucket(
   inline int i;
 
   lvl = tree_path_level(bucket_id);
-  bucket_blocks = first_block_in_bucket_for_level(stash, lvl);
+  bucket_blocks = _first_block_in_bucket_for_level(stash, lvl);
   bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_blocks);
   for i = 0 to BLOCKS_PER_BUCKET
   {
@@ -206,7 +206,7 @@ fn stash_scan_overflow_for_target(
   reg u8 c;
   reg bool cond;
 
-  ub = stash_overflow_ub(stash);
+  ub = _stash_overflow_ub(stash);
   overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
   i = 0;
   while (i < ub)
@@ -214,7 +214,7 @@ fn stash_scan_overflow_for_target(
     bid = (64u)[overflow_blocks];
     cond = bid == target_block_id;
     c = #SETcc(cond);
-    cond_swap_blocks(c, target, overflow_blocks);
+    _cond_swap_blocks(c, target, overflow_blocks);
     overflow_blocks += 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
     i += 1;
   }
@@ -230,7 +230,7 @@ fn _i_stash_scan_overflow_for_target(
   reg u8 c;
   reg bool cond;
 
-  ub = stash_overflow_ub(stash);
+  ub = _stash_overflow_ub(stash);
   overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
   i = 0;
   while (i < ub)
@@ -268,7 +268,7 @@ fn stash_add_block(
     b = bid == EMPTY_BLOCK_ID;
     c2 = #SETcc(b);
     c2 &= c1;
-    cond_copy_block(c2, overflow_blocks, new_block);
+    _cond_copy_block(c2, overflow_blocks, new_block);
     c1 = !c1;
     c1 |= c2;
     i += 1;
@@ -311,7 +311,7 @@ fn _i_stash_add_block(
 }
 
 inline
-fn stash_assign_block_to_bucket(
+fn _stash_assign_block_to_bucket(
   reg u64 stash path,
   reg u8 t, // is_path_block
   reg u64 index
@@ -333,10 +333,10 @@ fn stash_assign_block_to_bucket(
   r1 = r1 / tmp;
   r1 = #LEA(r1 + 1);
   r2 = (64u)PATH_LENGTH;
-  max_level = ternary(t, r1, r2);
+  max_level = _ternary(t, r1, r2);
 
   r2 = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH + index);
-  assignment_index = ternary(t, index, r2);
+  assignment_index = _ternary(t, index, r2);
 
   path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
   tmp = assignment_index;
@@ -395,7 +395,7 @@ fn stash_assign_block_to_bucket(
 }
 
 inline
-fn stash_place_empty_blocks(
+fn _stash_place_empty_blocks(
   reg u64 stash
 )
 {
@@ -456,7 +456,7 @@ fn stash_place_empty_blocks(
 }
 
 inline
-fn stash_assign_buckets(
+fn _stash_assign_buckets(
   reg u64 stash path
 )
 {
@@ -478,25 +478,25 @@ fn stash_assign_buckets(
   for lvl = 0 to PATH_LENGTH
   { for i = 0 to BLOCKS_PER_BUCKET
     {
-      stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_PATH, lvl * BLOCKS_PER_BUCKET + i);
+      _stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_PATH, lvl * BLOCKS_PER_BUCKET + i);
     }
   }
 
   // assign blocks in overflow to buckets
-  ub = stash_overflow_ub(stash);
+  ub = _stash_overflow_ub(stash);
   it = 0;
   while (it < ub)
   {
-    stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_OVERFLOW, it);
+    _stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_OVERFLOW, it);
     it = #LEA(it + 1);
   }
 
   // now assign empty blocks to fill the buckets
-  stash_place_empty_blocks(stash);
+  _stash_place_empty_blocks(stash);
 }
 
 inline
-fn comp_blocks(
+fn _comp_blocks(
   reg u64 blocks block_level_assignments,
   reg u64 idx1 idx2
 ) -> reg u8
@@ -528,7 +528,7 @@ fn comp_blocks(
 }
 
 inline
-fn min(reg u64 a b) -> reg u64
+fn _min(reg u64 a b) -> reg u64
 {
   // b ^ ((a ^ b) & -((a - b) >> 63));
   reg u64 sub;
@@ -544,7 +544,7 @@ fn min(reg u64 a b) -> reg u64
 }
 
 inline
-fn odd_even_msort(
+fn _odd_even_msort(
   reg u64 blocks block_level_assignments,
   reg u64 lb ub
 )
@@ -580,7 +580,7 @@ fn odd_even_msort(
         mini = ub;
         mini -= j;
         mini -= k;
-        mini = min(k, mini);
+        mini = _min(k, mini);
         i = 0;
         while (i < mini) {
           () = #spill(mini);
@@ -604,7 +604,7 @@ fn odd_even_msort(
             idx2 = #LEA(idx1 + k);
             () = #spill(k);
             () = #unspill(blocks, block_level_assignments);
-            cond = comp_blocks(blocks, block_level_assignments, idx1, idx2);
+            cond = _comp_blocks(blocks, block_level_assignments, idx1, idx2);
             // swap
             addr1 = blocks;
             tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx1;
@@ -612,7 +612,7 @@ fn odd_even_msort(
             tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx2;
             addr2 = #LEA(blocks + tmp);
             () = #spill(blocks);
-            cond_swap_blocks(cond, addr1, addr2);
+            _cond_swap_blocks(cond, addr1, addr2);
 
             addr1 = block_level_assignments;
             tmp = 8 * idx1;
@@ -620,7 +620,7 @@ fn odd_even_msort(
             tmp = 8 * idx2;
             addr2 = #LEA(block_level_assignments + tmp);
             () = #spill(block_level_assignments);
-            cond_obv_swap_u64(cond, addr1, addr2);
+            _cond_obv_swap_u64(cond, addr1, addr2);
             () = #unspill(i, j, k, ub);
           }
           () = #unspill(mini);
@@ -646,12 +646,12 @@ fn stash_build_path(
   reg u64 overflow_size;
   reg u64 blocks bucket_assignments;
 
-  stash_assign_buckets(stash, path);
+  _stash_assign_buckets(stash, path);
   blocks = [stash];
   bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
-  overflow_size = stash_overflow_ub(stash);
+  overflow_size = _stash_overflow_ub(stash);
   overflow_size = #LEA(overflow_size + PATH_LENGTH * BLOCKS_PER_BUCKET);
-  odd_even_msort(blocks, bucket_assignments, 0, overflow_size);
+  _odd_even_msort(blocks, bucket_assignments, 0, overflow_size);
 }
 
 inline

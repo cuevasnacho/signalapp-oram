@@ -1,5 +1,5 @@
 inline
-fn floor_log2(
+fn _floor_log2(
   reg u64 n
 ) -> reg u64
 {
@@ -14,7 +14,7 @@ fn floor_log2(
 
 // It compiles exactly as C version
 inline
-fn ternary(
+fn _ternary(
   reg u8 cond,
   reg u64 a b
 ) -> reg u64
@@ -31,7 +31,7 @@ fn ternary(
 }
 
 inline
-fn cond_obv_cpy_u64(
+fn _cond_obv_cpy_u64(
   reg u8 cond,
   reg u64 dest src
 )
@@ -39,12 +39,12 @@ fn cond_obv_cpy_u64(
   reg u64 a b tmp;
   a = (64u)[dest];
   b = (64u)[src];
-  tmp = ternary(cond, b, a);
+  tmp = _ternary(cond, b, a);
   (u64)[dest] = tmp;
 }
 
 inline
-fn cond_obv_swap_u64(
+fn _cond_obv_swap_u64(
   reg u8 cond,
   reg u64 a b
 )
@@ -52,14 +52,14 @@ fn cond_obv_swap_u64(
   reg u64 ra rb tmp;
   ra = (64u)[a];
   rb = (64u)[b];
-  tmp = ternary(cond, rb, ra);
+  tmp = _ternary(cond, rb, ra);
   (u64)[a] = tmp;
-  tmp = ternary(cond, ra, rb);
+  tmp = _ternary(cond, ra, rb);
   (u64)[b] = tmp;
 }
 
 inline
-fn first_pow2_leq(
+fn _first_pow2_leq(
   reg u64 n
 ) -> reg u64
 {

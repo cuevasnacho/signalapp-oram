@@ -12,7 +12,7 @@ fn level_jazz(
 ) -> reg u64
 {
   reg u64 r;
-  r = level(n);
+  r = _level(n);
   return r;
 }
 

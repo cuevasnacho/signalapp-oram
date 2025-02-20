@@ -15,7 +15,7 @@ fn oram_clear(
 }
 
 inline
-fn random_mod_by_pow_of_2(
+fn _random_mod_by_pow_of_2(
   reg u64 modulus
 ) -> reg u64
 {
@@ -43,8 +43,8 @@ fn random_mod_by_pow_of_2(
  * @param new_position Position for the target block after this access
  */
 
- inline
-fn oram_read_path_for_block(
+inline
+fn _oram_read_path_for_block(
   reg u64 oram path,
   reg u64 target_block_id,
   reg u64 target,
@@ -97,7 +97,7 @@ fn _i_oram_read_path_for_block(
 }
 
 inline
-fn read_accessor(
+fn _read_accessor(
   reg u64 block_data,
   reg u64 out_data
 )
@@ -128,7 +128,7 @@ fn _i_read_accessor(
 }
 
 inline
-fn write_accessor_full(
+fn _write_accessor_full(
   reg u64 block_data,
   reg u64 in_data
 )
@@ -161,7 +161,7 @@ fn _i_write_accessor_full(
 }
 
 inline
-fn write_accessor_partial(
+fn _write_accessor_partial(
   reg u64 block_data,
   reg u64 in_data_start in_data_len,
   reg u64 in_data out_data
@@ -174,7 +174,7 @@ fn write_accessor_partial(
 
   block_data = block_data;
   if (out_data != 0) {
-    read_accessor(block_data, out_data);
+    _read_accessor(block_data, out_data);
   }
 
   cons = in_data_start % in_data_len;
@@ -199,7 +199,7 @@ fn write_accessor_partial(
     c2 = #SETcc(b);
     c1 &= c2;
 
-    cond_obv_cpy_u64(c1, block_data, addr);
+    _cond_obv_cpy_u64(c1, block_data, addr);
     block_data = #LEA(block_data + 8);
   }
 }
@@ -247,14 +247,14 @@ fn _i_write_accessor_partial(
 
     tmp = [addr];
     tmp0 = block_data[i];
-    block_data[i] = ternary(c1, addr, tmp0);
+    block_data[i] = _ternary(c1, addr, tmp0);
   }
   return block_data;
 }
 
 
 inline
-fn oram_access_read(
+fn _oram_access_read(
   reg u64 oram,
   reg u64 block_id,
   reg u64 out_data
@@ -274,7 +274,7 @@ fn oram_access_read(
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
-  new_position = random_mod_by_pow_of_2(max_position);
+  new_position = _random_mod_by_pow_of_2(max_position);
   position_map = [oram + 8 * POSITION_MAP_ADDR];
   x = position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
@@ -307,7 +307,7 @@ fn oram_access_read(
 }
 
 inline
-fn oram_access_write(
+fn _oram_access_write(
   reg u64 oram,
   reg u64 block_id,
   reg u64 in_data
@@ -327,7 +327,7 @@ fn oram_access_write(
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
-  new_position = random_mod_by_pow_of_2(max_position);
+  new_position = _random_mod_by_pow_of_2(max_position);
   position_map = [oram + 8 * POSITION_MAP_ADDR];
   x = position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
@@ -360,7 +360,7 @@ fn oram_access_write(
 }
 
 inline
-fn oram_access_write_partial(
+fn _oram_access_write_partial(
   reg u64 oram,
   reg u64 block_id start len,
   reg u64 data prev_data
@@ -381,7 +381,7 @@ fn oram_access_write_partial(
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
-  new_position = random_mod_by_pow_of_2(max_position);
+  new_position = _random_mod_by_pow_of_2(max_position);
   new_position = new_position;
   position_map = [oram + 8 * POSITION_MAP_ADDR];
   () = #unspill(block_id);

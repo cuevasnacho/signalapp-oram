@@ -21,7 +21,7 @@ require "params.jinc"
 // are level 0) and the offset in that level.
 
 inline
-fn level(
+fn _level(
   reg u64 n
 ) -> reg u64
 {
@@ -38,7 +38,7 @@ fn coords_for_val(
 ) -> reg u64, reg u64
 {
   reg u64 level lmod lres;
-  level = level(val);
+  level = _level(val);
   lmod = 1;
   lmod = #SHL(lmod, level);
   lmod = #SHL(lmod, 1);
@@ -116,7 +116,7 @@ fn tree_path_lower_bound(
 ) -> reg u64
 {
   reg u64 l step;
-  l = level(val);
+  l = _level(val);
   val = val;
   step = 1;
   step = #SHL(step, l);
@@ -131,7 +131,7 @@ fn tree_path_upper_bound(
 ) -> reg u64
 {
   reg u64 l step;
-  l = level(val);
+  l = _level(val);
   step = 1;
   step = #SHL(step, l);
   step -= 1;
@@ -145,6 +145,6 @@ fn tree_path_level(
 ) -> reg u64
 {
   reg u64 l;
-  l = level(val);
+  l = _level(val);
   return l;
 }
