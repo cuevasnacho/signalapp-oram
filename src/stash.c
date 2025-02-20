@@ -17,40 +17,48 @@
 // and essentially start over.
 #define STASH_GROWTH_INCREMENT 20
 
-struct stash
-{
-    /**
-     * @brief Array of all blocks stored in the stash
-     */
-    block* blocks;
-    /**
-     * @brief Convenience pointer to the part of `blocks` that contains blocks for the current path
-     */
-    block* path_blocks;
-    /**
-     * @brief Convenience pointer to the part of `blocks` that contains blocks for the overflow that 
-     * either does not fit or has not been placed in the current stash.
-     */
-    block* overflow_blocks;
-    /**
-     * @brief Total number of blocks that can be held in the `blocks` array.
-     */
-    size_t num_blocks;
-    /**
-     * @brief Length of the paths for the ORAM using this stash.
-     */
-    size_t path_length;
-    /**
-     * @brief Number of blocks in the stash that can be used to store overflow blocks that can't be allocated to the 
-     * `path_blocks`. This is the upper bound for the `overflow` array.
-     * 
-     */
-    size_t overflow_capacity;
+#define STASH_BLOCKS(s)             ((s)[0])
+#define STASH_PATH_BLOCKS(s)        ((s)[1])
+#define STASH_OVERFLOW_BLOCKS(s)    ((s)[2])
+#define STASH_NUM_BLOCKS(s)         ((s)[3])
+#define STASH_PATH_LENGTH(s)        ((s)[4])
+#define STASH_OVERFLOW_CAPACITY(s)  ((s)[5])
+#define STASH_BUCKET_OCCUPANCY(s)   ((s)[6])
+#define STASH_BUCKET_ASSIGNMENTS(s) ((s)[7])
+// struct stash
+// {
+//     /**
+//      * @brief Array of all blocks stored in the stash
+//      */
+//     block* blocks;
+//     /**
+//      * @brief Convenience pointer to the part of `blocks` that contains blocks for the current path
+//      */
+//     block* path_blocks;
+//     /**
+//      * @brief Convenience pointer to the part of `blocks` that contains blocks for the overflow that 
+//      * either does not fit or has not been placed in the current stash.
+//      */
+//     block* overflow_blocks;
+//     /**
+//      * @brief Total number of blocks that can be held in the `blocks` array.
+//      */
+//     size_t num_blocks;
+//     /**
+//      * @brief Length of the paths for the ORAM using this stash.
+//      */
+//     size_t path_length;
+//     /**
+//      * @brief Number of blocks in the stash that can be used to store overflow blocks that can't be allocated to the 
+//      * `path_blocks`. This is the upper bound for the `overflow` array.
+//      * 
+//      */
+//     size_t overflow_capacity;
 
-    // scratch space for block placement computations
-    u64* bucket_occupancy;
-    u64* bucket_assignments;
-};
+//     // scratch space for block placement computations
+//     u64* bucket_occupancy;
+//     u64* bucket_assignments;
+// };
 
 
 typedef enum {
@@ -72,18 +80,20 @@ stash *stash_create(size_t path_length, size_t overflow_size)
     size_t num_blocks = overflow_size + num_path_blocks;
     stash *result;
     CHECK(result = calloc(1, sizeof(*result)));
-    CHECK(result->blocks = calloc(num_blocks, sizeof(*result->blocks)));
-    result->path_blocks = result->blocks;
-    result->overflow_blocks = result->blocks + num_path_blocks;
-    result->num_blocks = num_blocks;
-    result->overflow_capacity = num_blocks - num_path_blocks; 
-    CHECK(overflow_size == result->overflow_capacity);
-    result->path_length = path_length;
+    block *blocks;
+    CHECK(blocks = calloc(num_blocks, sizeof(block)));
+    STASH_BLOCKS(*result) = blocks;
+    STASH_PATH_BLOCKS(*result) = (block*)STASH_BLOCKS(*result);
+    STASH_OVERFLOW_BLOCKS(*result) = (block*)STASH_BLOCKS(*result) + num_path_blocks;
+    STASH_NUM_BLOCKS(*result) = num_blocks;
+    STASH_OVERFLOW_CAPACITY(*result) = num_blocks - num_path_blocks; 
+    CHECK(overflow_size == STASH_OVERFLOW_CAPACITY(*result));
+    STASH_PATH_LENGTH(*result) = path_length;
 
-    CHECK(result->bucket_occupancy = calloc(path_length, sizeof(*result->bucket_occupancy)));
-    CHECK(result->bucket_assignments = calloc(num_blocks, sizeof(*result->bucket_assignments)));
+    CHECK(STASH_BUCKET_OCCUPANCY(*result) = calloc(path_length, sizeof(u64)));
+    CHECK(STASH_BUCKET_ASSIGNMENTS(*result) = calloc(num_blocks, sizeof(u64)));
 
-    memset(result->blocks, 255,  sizeof(result->blocks[0]) * num_blocks);
+    memset(STASH_BLOCKS(*result), 255,  sizeof(block) * num_blocks);
     return result;
 }
 
@@ -91,35 +101,35 @@ void stash_destroy(stash *stash)
 {
     if (stash)
     {
-        free(stash->blocks);
-        free(stash->bucket_occupancy);
-        free(stash->bucket_assignments);
+        free(STASH_BLOCKS(*stash));
+        free(STASH_BUCKET_OCCUPANCY(*stash));
+        free(STASH_BUCKET_ASSIGNMENTS(*stash));
     }
     free(stash);
 }
 
 const block* stash_path_blocks(const stash* stash) {
-    return stash->path_blocks;
+    return (block*)STASH_PATH_BLOCKS(*stash);
 }
 
 static void stash_extend_overflow(stash* stash) {
-    size_t new_num_blocks = stash->num_blocks + STASH_GROWTH_INCREMENT;
+    size_t new_num_blocks = STASH_NUM_BLOCKS(*stash) + STASH_GROWTH_INCREMENT;
 
     // (re)allocate new space, free the old
-    CHECK(stash->blocks = realloc(stash->blocks, new_num_blocks * sizeof(*stash->blocks)));
-    free(stash->bucket_assignments);
-    CHECK(stash->bucket_assignments = calloc(new_num_blocks, sizeof(*stash->bucket_assignments)));
+    CHECK(STASH_BLOCKS(*stash) = realloc(STASH_BLOCKS(*stash), new_num_blocks * sizeof(block)));
+    free(STASH_BUCKET_ASSIGNMENTS(*stash));
+    CHECK(STASH_BUCKET_ASSIGNMENTS(*stash) = calloc(new_num_blocks, sizeof(u64)));
 
     // update our alias pointers
-    stash->path_blocks = stash->blocks;
-    stash->overflow_blocks = stash->blocks + stash->path_length * BLOCKS_PER_BUCKET;
+    STASH_PATH_BLOCKS(*stash) = (block*)STASH_BLOCKS(*stash);
+    STASH_OVERFLOW_BLOCKS(*stash) = (block*)STASH_BLOCKS(*stash) + STASH_PATH_LENGTH(*stash) * BLOCKS_PER_BUCKET;
 
     // initialize new memory
-    memset(stash->blocks + stash->num_blocks, 255,  sizeof(stash->blocks[0]) * STASH_GROWTH_INCREMENT);
+    memset((block*)STASH_BLOCKS(*stash) + STASH_NUM_BLOCKS(*stash), 255,  sizeof(block) * STASH_GROWTH_INCREMENT);
 
     // update counts
-    stash->num_blocks += STASH_GROWTH_INCREMENT;
-    stash->overflow_capacity += STASH_GROWTH_INCREMENT;
+    STASH_NUM_BLOCKS(*stash) += STASH_GROWTH_INCREMENT;
+    STASH_OVERFLOW_CAPACITY(*stash) += STASH_GROWTH_INCREMENT;
 }
 
 /** returns the index of the last nonempty blocks in overflow */
@@ -137,10 +147,10 @@ static size_t stash_overflow_ub(const stash* stash) {
     // there is no value in obfuscating it in the computation.
     bool allow_overflow_size_leak = true;
 
-    size_t i = stash->overflow_capacity;
+    size_t i = STASH_OVERFLOW_CAPACITY(*stash);
     if(allow_overflow_size_leak) {
         while( i > 0) {
-            if(stash->overflow_blocks[i-1].id != EMPTY_BLOCK_ID) break;
+            if(BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash))[i-1]) != EMPTY_BLOCK_ID) break;
             --i;
         }
     }
@@ -149,13 +159,13 @@ static size_t stash_overflow_ub(const stash* stash) {
 
 size_t stash_num_overflow_blocks(const stash* stash) {
     size_t result = 0;
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        result += U64_TERNARY(stash->overflow_blocks[i].id != EMPTY_BLOCK_ID, 1, 0);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i) {
+        result += U64_TERNARY(BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash))[i]) != EMPTY_BLOCK_ID, 1, 0);
     }
     return result;
 }
 static inline block* first_block_in_bucket_for_level(const stash* stash, size_t level) {
-    return stash->path_blocks + level * BLOCKS_PER_BUCKET;
+    return (block*)STASH_PATH_BLOCKS(*stash) + level * BLOCKS_PER_BUCKET;
 }
 
 static void cond_copy_block(bool cond, block* dst, const block* src) {
@@ -181,8 +191,8 @@ void stash_add_path_bucket(stash* stash, bucket_store* bucket_store, u64 bucket_
     block* bucket_blocks = first_block_in_bucket_for_level(stash, level);
     bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_blocks);
     for(size_t i = 0; i < BLOCKS_PER_BUCKET; ++i) {
-        bool cond = (target_block_id == bucket_blocks[i].id);
-        CHECK(!(cond  & (target->id != EMPTY_BLOCK_ID)));
+        bool cond = (target_block_id == BLOCK_ID(bucket_blocks[i]));
+        CHECK(!(cond  & (BLOCK_ID(*target) != EMPTY_BLOCK_ID)));
         cond_swap_blocks(cond, target, bucket_blocks + i);
     }
 }
@@ -194,9 +204,9 @@ void stash_scan_overflow_for_target(stash* stash, u64 target_block_id, block *ta
     size_t num_found = 0;
     size_t ub = stash_overflow_ub(stash);
     for(size_t i = 0; i < ub; ++i) {
-        bool cond = (stash->overflow_blocks[i].id == target_block_id);
-        CHECK(!(cond  & (target->id != EMPTY_BLOCK_ID)));
-        cond_swap_blocks(cond, target, stash->overflow_blocks + i);
+        bool cond = (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash))[i]) == target_block_id);
+        CHECK(!(cond  & (BLOCK_ID(*target) != EMPTY_BLOCK_ID)));
+        cond_swap_blocks(cond, target, (block*)STASH_OVERFLOW_BLOCKS(*stash) + i);
         num_found += cond ? 1 : 0;
     }
     CHECK(num_found <= 1);
@@ -205,9 +215,9 @@ void stash_scan_overflow_for_target(stash* stash, u64 target_block_id, block *ta
 // Precondition: there is no block with ID `new_block->id` anywhere in the stash - neither the path_Stash nor the overflow.
 error_t stash_add_block(stash* stash, block* new_block) {
     bool inserted = false;
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        bool cond = (stash->overflow_blocks[i].id == EMPTY_BLOCK_ID) & !inserted;
-        cond_copy_block(cond, stash->overflow_blocks + i, new_block);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i) {
+        bool cond = (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash))[i]) == EMPTY_BLOCK_ID) & !inserted;
+        cond_copy_block(cond, (block*)STASH_OVERFLOW_BLOCKS(*stash) + i, new_block);
         inserted = inserted | cond;
     }
 
@@ -226,24 +236,24 @@ static void stash_assign_block_to_bucket(stash* stash, const tree_path* path, bl
     bool is_overflow_block = (type == block_type_overflow);
 
     // the block cannot be assigned to this level or higher 
-    size_t max_level = U64_TERNARY(is_overflow_block, stash->path_length, (index / BLOCKS_PER_BUCKET) + 1);
-    size_t assignment_index = U64_TERNARY(is_overflow_block,  BLOCKS_PER_BUCKET * stash->path_length  + index, index);
-    block* block = stash->path_blocks + assignment_index;
+    size_t max_level = U64_TERNARY(is_overflow_block, STASH_PATH_LENGTH(*stash), (index / BLOCKS_PER_BUCKET) + 1);
+    size_t assignment_index = U64_TERNARY(is_overflow_block,  BLOCKS_PER_BUCKET * STASH_PATH_LENGTH(*stash)  + index, index);
+    block* assigned_block = ((block*)STASH_PATH_BLOCKS(*stash)) + assignment_index;
 
     bool is_assigned = false;
     for(u64 level = 0; level < max_level; ++level) {
-        u64 bucket_occupancy = stash->bucket_occupancy[level];
-        u64 bucket_id = path->values[level];
-        bool is_valid = tree_path_lower_bound(bucket_id) <= block->position & tree_path_upper_bound(bucket_id) >= block->position;
-        bool bucket_has_room = bucket_occupancy < BLOCKS_PER_BUCKET;    
-        bool cond = is_valid & bucket_has_room & !is_assigned & block->id != EMPTY_BLOCK_ID;
+        u64 bucket_occupancy = ((u64*)STASH_BUCKET_OCCUPANCY(*stash))[level];
+        u64 bucket_id = TREE_PATH_VALUES(*path)[level];
+        bool is_valid = tree_path_lower_bound(bucket_id) <= BLOCK_POSITION(*assigned_block) & tree_path_upper_bound(bucket_id) >= BLOCK_POSITION(*assigned_block);
+        bool bucket_has_room = bucket_occupancy < BLOCKS_PER_BUCKET;
+        bool cond = is_valid & bucket_has_room & !is_assigned & BLOCK_ID(*assigned_block) != EMPTY_BLOCK_ID;
 
         // If `cond` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
         // for this position.
         // increment this, it will only get saved if `cond` is true.
         ++bucket_occupancy;
-        cond_obv_cpy_u64(cond, stash->bucket_occupancy + level, &bucket_occupancy);
-        cond_obv_cpy_u64(cond, stash->bucket_assignments + assignment_index, &level);
+        cond_obv_cpy_u64(cond, (u64*)STASH_BUCKET_OCCUPANCY(*stash) + level, &bucket_occupancy);
+        cond_obv_cpy_u64(cond, (u64*)STASH_BUCKET_ASSIGNMENTS(*stash) + assignment_index, &level);
         is_assigned = cond | is_assigned;
     }
 }
@@ -251,20 +261,20 @@ static void stash_assign_block_to_bucket(stash* stash, const tree_path* path, bl
 static void stash_place_empty_blocks(stash* stash) {
     u64 curr_bucket = 0;
     
-    for(size_t i = 0; i < stash->num_blocks; ++i) {
+    for(size_t i = 0; i < STASH_NUM_BLOCKS(*stash); ++i) {
         bool found_curr_bucket = false;
-        for(size_t j = 0; j < stash->path_length; ++j) {
-            bool bucket_has_room = (stash->bucket_occupancy[j] != BLOCKS_PER_BUCKET);
+        for(size_t j = 0; j < STASH_PATH_LENGTH(*stash); ++j) {
+            bool bucket_has_room = (((u64*)STASH_BUCKET_OCCUPANCY(*stash))[j] != BLOCKS_PER_BUCKET);
             bool set_curr_bucket = bucket_has_room & !found_curr_bucket;
             cond_obv_cpy_u64(set_curr_bucket, &curr_bucket, &j);
             found_curr_bucket = set_curr_bucket | found_curr_bucket;
         }
-        u64 bucket_occupancy = stash->bucket_occupancy[curr_bucket];
-        bool cond_place_in_bucket = bucket_occupancy < BLOCKS_PER_BUCKET & stash->blocks[i].id == EMPTY_BLOCK_ID;
+        u64 bucket_occupancy = ((u64*)STASH_BUCKET_OCCUPANCY(*stash))[curr_bucket];
+        bool cond_place_in_bucket = bucket_occupancy < BLOCKS_PER_BUCKET & BLOCK_ID(((block*)STASH_BLOCKS(*stash))[i]) == EMPTY_BLOCK_ID;
         bucket_occupancy++;
 
-        cond_obv_cpy_u64(cond_place_in_bucket, stash->bucket_occupancy + curr_bucket, &bucket_occupancy);
-        cond_obv_cpy_u64(cond_place_in_bucket, stash->bucket_assignments + i, &curr_bucket);
+        cond_obv_cpy_u64(cond_place_in_bucket, (u64*)STASH_BUCKET_OCCUPANCY(*stash) + curr_bucket, &bucket_occupancy);
+        cond_obv_cpy_u64(cond_place_in_bucket, (u64*)STASH_BUCKET_ASSIGNMENTS(*stash) + i, &curr_bucket);
 
     }
 
@@ -273,12 +283,12 @@ static void stash_place_empty_blocks(stash* stash) {
 
 static error_t stash_assign_buckets(stash* stash, const tree_path* path) {
     // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
-    memset(stash->bucket_assignments, 255, stash->num_blocks*sizeof(stash->bucket_assignments));
-    memset(stash->bucket_occupancy, 0, stash->path_length * sizeof(*stash->bucket_occupancy));
+    memset(STASH_BUCKET_ASSIGNMENTS(*stash), 255, STASH_NUM_BLOCKS(*stash) * sizeof(STASH_BUCKET_ASSIGNMENTS(*stash)));
+    memset(STASH_BUCKET_OCCUPANCY(*stash), 0, STASH_PATH_LENGTH(*stash) * sizeof(u64));
 
 
     // assign blocks in path to buckets first
-    for(size_t level = 0; level < stash->path_length; ++level) {
+    for(size_t level = 0; level < STASH_PATH_LENGTH(*stash); ++level) {
         for(size_t b = 0; b < BLOCKS_PER_BUCKET; ++b) {
             stash_assign_block_to_bucket(stash, path, block_type_path, level * BLOCKS_PER_BUCKET + b);
         }
@@ -298,7 +308,7 @@ static error_t stash_assign_buckets(stash* stash, const tree_path* path) {
 
 static inline bool comp_blocks(block* blocks, u64* block_level_assignments, size_t idx1, size_t idx2) {
     return (block_level_assignments[idx1] > block_level_assignments[idx2])
-                | ((block_level_assignments[idx1] == block_level_assignments[idx2]) & (blocks[idx1].position > blocks[idx2].position));
+                | ((block_level_assignments[idx1] == block_level_assignments[idx2]) & (BLOCK_POSITION(blocks[idx1]) > BLOCK_POSITION(blocks[idx2])));
 }
 
 /**
@@ -354,23 +364,46 @@ static void bitonic_sort(block* blocks, u64* block_level_assignments, size_t lb,
     }
 }
 
+static inline size_t min(size_t a, size_t b) {
+    return U64_TERNARY(a < b, a, b);
+}
+
+static void odd_even_msort(block* blocks, u64 *block_level_assignments, size_t lb, size_t ub) {
+    size_t n = ub - lb;
+    for (size_t p = 1; p < n; p <<= 1) {
+        for (size_t k = p; k >= 1; k >>= 1) {
+            size_t mod_kp = k % p;
+            for (size_t j = mod_kp; j < n-k; j += 2*k) {
+                for (size_t i = 0; i < min(k, n-j-k); ++i) {
+                    if (((i+j) / (p*2)) == ((i+j+k) / (p*2))) {
+                        size_t idx = i + j + lb;
+                        bool cond = comp_blocks(blocks, block_level_assignments, idx, idx+k);
+                        cond_swap_blocks(cond, blocks + idx, blocks + idx + k);
+                        cond_obv_swap_u64(cond, block_level_assignments + idx, block_level_assignments + idx + k);
+                    }
+                }
+            }
+        }
+    }
+}
+
 void print_bucket_assignments(const stash* stash) {
-    for(size_t i = 0; i < stash->num_blocks; ++i) {
+    for(size_t i = 0; i < STASH_NUM_BLOCKS(*stash); ++i) {
         fprintf(stderr, "%zu: block: %" PRIu64 " pos: %" PRIu64 " assignment: %" PRIu64 "\n",
-            i, stash->blocks[i].id, stash->blocks[i].position, stash->bucket_assignments[i]);
+            i, BLOCK_ID(((block*)STASH_BLOCKS(*stash))[i]), BLOCK_POSITION(((block*)STASH_BLOCKS(*stash))[i]), ((u64*)STASH_BUCKET_ASSIGNMENTS(*stash))[i]);
     }
 }
 
 void stash_build_path(stash* stash, const tree_path* path) {
     size_t overflow_size = stash_overflow_ub(stash);
     stash_assign_buckets(stash, path);
-    bitonic_sort(stash->blocks, stash->bucket_assignments, 0, BLOCKS_PER_BUCKET * stash->path_length + overflow_size, true);
+    odd_even_msort((block*)STASH_BLOCKS(*stash), STASH_BUCKET_ASSIGNMENTS(*stash), 0, BLOCKS_PER_BUCKET * STASH_PATH_LENGTH(*stash) + overflow_size);
     // print_bucket_assignments(stash);
 }
 
 
 error_t stash_clear(stash* stash) {
-    memset(stash->blocks, 255,  sizeof(stash->blocks[0]) * stash->num_blocks);
+    memset((block*)STASH_BLOCKS(*stash), 255,  sizeof(block) * STASH_NUM_BLOCKS(*stash));
     return err_SUCCESS;
 }
 
@@ -383,42 +416,41 @@ error_t stash_clear(stash* stash) {
 void cond_copy_block_jazz(bool cond, block* dst, const block* src);
 void cond_swap_blocks_jazz(bool cond, block* a, block* b);
 void stash_add_block_jazz(stash* stash, block* new_block);
-void selection_sort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
+void odd_even_msort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
 
 void stash_print(const stash *stash)
 {
     size_t num_blocks = 0;
-    for (size_t i = 0; i < stash->overflow_capacity; ++i)
+    for (size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i)
     {
-        if (stash->overflow_blocks[i].id != EMPTY_BLOCK_ID)
+        if (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash))[i]) != EMPTY_BLOCK_ID)
         {
             num_blocks++;
         }
     }
     printf("Stash holds %zu blocks.\n", num_blocks);
-    for (size_t i = 0; i < stash->overflow_capacity; ++i)
+    for (size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i)
     {
-        if (stash->overflow_blocks[i].id != EMPTY_BLOCK_ID)
+        if (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash))[i]) != EMPTY_BLOCK_ID)
         {
-            printf("block_id: %" PRIu64 "\n", stash->overflow_blocks[i].id);
+            printf("block_id: %" PRIu64 "\n", BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash))[i]));
         }
     }
 }
 
 
 int test_cond_cpy_block() {
-    block b1 = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
-    block b1_jazz = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
-    block b1_orig = {.id = 1, .position = 1023, .data = {9,8,7,6,5,4,3,2,1}};
-    block b2 = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
-    block b2_jazz = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
-    block b2_orig = {.id = 2, .position = 2047, .data = {19,18,17,16,15,14,13,12,11}};
+    block b1 = {1, 1023, 9,8,7,6,5,4,3,2,1};
+    block b1_jazz = {1, 1023, 9,8,7,6,5,4,3,2,1};
+    block b1_orig = {1, 1023, 9,8,7,6,5,4,3,2,1};
+    block b2 = {2, 2047, 19,18,17,16,15,14,13,12,11};
+    block b2_jazz = {2, 2047, 19,18,17,16,15,14,13,12,11};
+    block b2_orig = {2, 2047, 19,18,17,16,15,14,13,12,11};
 
-    block target = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block mt_block = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block target_jazz = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block mt_block_jazz = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-
+    block target = {EMPTY_BLOCK_ID, UINT64_MAX};
+    block mt_block = {EMPTY_BLOCK_ID, UINT64_MAX};
+    block target_jazz = {EMPTY_BLOCK_ID, UINT64_MAX};
+    block mt_block_jazz = {EMPTY_BLOCK_ID, UINT64_MAX};
 
     cond_copy_block(false, &target, &b1);
     cond_copy_block_jazz(false, &target_jazz, &b1_jazz);
@@ -452,43 +484,23 @@ int test_cond_cpy_block() {
 }
 
 int test_oblv_sort() {
-    size_t num_blocks = 32;
-    block blocks[32] = {
-        {.id = 1},
-        {.id = 2},
-        {.id = 3},
-        {.id = 4},
-        {.id = 5},
-        {.id = 6},
-        {.id = 7},
-        {.id = 8},
-        {.id = 9},
-        {.id = 10},
-        {.id = 11},
-        {.id = 12},
-        {.id = 13},
-        {.id = 14},
-        {.id = 15},
-        {.id = 16},
-        {.id = 17},
-        {.id = 18},
-        {.id = 19},
-        {.id = 20},
-    };
+    size_t num_blocks = 30;
+    block blocks[30] = {0};
+    for (size_t i = 0; i < 20; i++) BLOCK_ID(blocks[i]) = i;
 
-    u64 bucket_assignments[32] = {
+    u64 bucket_assignments[30] = {
         0,7,UINT64_MAX,2,9,UINT64_MAX,4,11,UINT64_MAX,6,1,UINT64_MAX,8,3,UINT64_MAX,10,5,0,5,0
     };
 
-    block original_blocks[32], jazz_blocks[32];
-    u64 original_bucket_assignments[32], jazz_bucket_assignments[32];
+    block original_blocks[30], jazz_blocks[30];
+    u64 original_bucket_assignments[30], jazz_bucket_assignments[30];
     memcpy(original_blocks, blocks, sizeof(blocks));
     memcpy(jazz_blocks, blocks, sizeof(blocks));
     memcpy(original_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
     memcpy(jazz_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
 
-    bitonic_sort(blocks, bucket_assignments, 0, num_blocks, true);
-    selection_sort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
+    odd_even_msort(blocks, bucket_assignments, 0, num_blocks);
+    odd_even_msort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
 
     for(size_t i = 1; i < num_blocks; ++i) {
         // check that it is sorted
@@ -496,7 +508,7 @@ int test_oblv_sort() {
         // and that the blocks and bucket assignments moved together
         bool found = false;
         for(size_t j = 0; j < num_blocks; ++j) {
-            if(blocks[i].id == original_blocks[j].id) {
+            if(BLOCK_ID(blocks[i]) == BLOCK_ID(original_blocks[j])) {
                 found = true;
                 TEST_ASSERT(bucket_assignments[i] == original_bucket_assignments[j]);
                 break;
@@ -504,6 +516,15 @@ int test_oblv_sort() {
         }
         TEST_ASSERT(found);
 
+        found = false;
+        for(size_t j = 0; j < num_blocks; ++j) {
+            if(BLOCK_ID(jazz_blocks[i]) == BLOCK_ID(original_blocks[j])) {
+                found = true;
+                TEST_ASSERT(jazz_bucket_assignments[i] == original_bucket_assignments[j]);
+                break;
+            }
+        }
+        TEST_ASSERT(found);
     }
     for(size_t i = 0; i < num_blocks; ++i) {
         TEST_ASSERT(bucket_assignments[i] == jazz_bucket_assignments[i]);
@@ -522,13 +543,13 @@ static void fill_block_data(u64 data[static BLOCK_DATA_SIZE_QWORDS])
 
 static int check_stash_entry(block e, u64 expected_block_id, const u64 expected_data[BLOCK_DATA_SIZE_QWORDS], u64 expected_position)
 {
-    TEST_ASSERT(e.id == expected_block_id);
-    TEST_ASSERT(e.position == expected_position);
+    TEST_ASSERT(BLOCK_ID(e) == expected_block_id);
+    TEST_ASSERT(BLOCK_POSITION(e) == expected_position);
     if (expected_block_id != EMPTY_BLOCK_ID)
     {
         for (size_t i = 0; i < BLOCK_DATA_SIZE_QWORDS; ++i)
         {
-            TEST_ASSERT(e.data[i] == expected_data[i]);
+            TEST_ASSERT(BLOCK_DATA(e)[i] == expected_data[i]);
         }
     }
     return 0;
@@ -546,7 +567,7 @@ u64 random_position_for_bucket(u64 bucket_id) {
     return lb + (rnd % (ub+1 - lb)); // need the +1 because it is an inclusive upper bound
 }
 static void generate_blocks_for_bucket(u64 bucket_id, u64 block_id_start, size_t num_nonempty_blocks, block blocks[3]) {
-    block empty = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
+    block empty = {EMPTY_BLOCK_ID, UINT64_MAX};
     u64 num_created = 0;
     u64 rnd[] = {0};
     getentropy(rnd, sizeof(rnd));
@@ -563,8 +584,9 @@ static void generate_blocks_for_bucket(u64 bucket_id, u64 block_id_start, size_t
                             || (num_nonempty_blocks == 2 && i != special_block_idx)
                             || (num_nonempty_blocks == 1 && i == special_block_idx);
         
-        block block = {.id = block_id_start + num_created, .position = random_position_for_bucket(bucket_id)};
-        blocks[i] = fill_block ? block : empty;
+        block block = {block_id_start + num_created, random_position_for_bucket(bucket_id)};
+        if (fill_block) { memcpy(blocks[i], block, sizeof(block)); }
+        else { memcpy(blocks[i], empty, sizeof(block)); }
         num_created += fill_block ? 1 : 0;
     }
 
@@ -577,7 +599,7 @@ static void load_bucket_store(
     u8 bucket_data[DECRYPTED_BUCKET_SIZE];
     block* bucket_blocks = (block*) bucket_data;
     *num_blocks_created = 0;
-    for(size_t level = 0; level < path->length; ++level) {
+    for(size_t level = 0; level < TREE_PATH_LENGTH(*path); ++level) {
         size_t num_blocks = 0;
         switch(density) {
         case bucket_density_empty:
@@ -593,9 +615,9 @@ static void load_bucket_store(
             num_blocks = BLOCKS_PER_BUCKET;
         }
         *num_blocks_created += num_blocks;
-        generate_blocks_for_bucket(path->values[level], *num_blocks_created, num_blocks, bucket_blocks);
-        bucket_store_write_bucket_blocks(bucket_store0, path->values[level], bucket_blocks);
-        bucket_store_write_bucket_blocks(bucket_store1, path->values[level], bucket_blocks);
+        generate_blocks_for_bucket(TREE_PATH_VALUES(*path)[level], *num_blocks_created, num_blocks, bucket_blocks);
+        bucket_store_write_bucket_blocks(bucket_store0, TREE_PATH_VALUES(*path)[level], bucket_blocks);
+        bucket_store_write_bucket_blocks(bucket_store1, TREE_PATH_VALUES(*path)[level], bucket_blocks);
     }
     
 }
@@ -616,21 +638,21 @@ int test_load_bucket_path_to_stash(bucket_density density) {
     load_bucket_store(bucket_store0, bucket_store1, num_levels, path0, density, &num_blocks_added);
 
     u64 target_block_id = num_blocks_added / 2;
-    block target0 = {.id=EMPTY_BLOCK_ID};
-    block target1 = {.id=EMPTY_BLOCK_ID};
-    for(size_t i = 0; i < path0->length; ++i) {
-        stash_add_path_bucket(stash0, bucket_store0, path0->values[i], target_block_id, &target0);
-        stash_add_path_bucket_jazz(stash1, bucket_store1, path1->values[i], target_block_id, &target1);
+    block target0 = {EMPTY_BLOCK_ID};
+    block target1 = {EMPTY_BLOCK_ID};
+    for(size_t i = 0; i < TREE_PATH_LENGTH(*path0); ++i) {
+        stash_add_path_bucket(stash0, bucket_store0, TREE_PATH_VALUES(*path0)[i], target_block_id, &target0);
+        stash_add_path_bucket_jazz(stash1, bucket_store1, TREE_PATH_VALUES(*path1)[i], target_block_id, &target1);
     }
 
-    TEST_ASSERT(target0.id == target_block_id);
-    TEST_ASSERT(target1.id == target_block_id);
-    for(size_t i = 0; i < path0->length; ++i) {
-        block* bucket_blocks0 = stash0->path_blocks + i * BLOCKS_PER_BUCKET;
-        block* bucket_blocks1 = stash1->path_blocks + i * BLOCKS_PER_BUCKET;
+    TEST_ASSERT(BLOCK_ID(target0) == target_block_id);
+    TEST_ASSERT(BLOCK_ID(target1) == target_block_id);
+    for(size_t i = 0; i < TREE_PATH_LENGTH(*path0); ++i) {
+        block* bucket_blocks0 = (block*)STASH_PATH_BLOCKS(*stash0) + i * BLOCKS_PER_BUCKET;
+        block* bucket_blocks1 = (block*)STASH_PATH_BLOCKS(*stash1) + i * BLOCKS_PER_BUCKET;
         for(size_t b = 0; b < BLOCKS_PER_BUCKET; ++b) {
-            TEST_ASSERT(bucket_blocks0[b].id != target_block_id);
-            TEST_ASSERT(bucket_blocks1[b].id != target_block_id);
+            TEST_ASSERT(BLOCK_ID(bucket_blocks0[b]) != target_block_id);
+            TEST_ASSERT(BLOCK_ID(bucket_blocks1[b]) != target_block_id);
         }
     }
 
@@ -655,14 +677,14 @@ int test_stash_insert_read()
     fill_block_data(data0);
     fill_block_data(data1);
 
-    block b0 = {.id = block_id0, .position = 2};
-    block b1 = {.id = block_id1, .position = 3};
-    block target0 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block target1 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block target2 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    block target3 = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
-    memcpy(b0.data, data0, sizeof(data0));
-    memcpy(b1.data, data1, sizeof(data1));
+    block b0 = {block_id0, 2};
+    block b1 = {block_id1, 3};
+    block target0 = {EMPTY_BLOCK_ID, UINT64_MAX};
+    block target1 = {EMPTY_BLOCK_ID, UINT64_MAX};
+    block target2 = {EMPTY_BLOCK_ID, UINT64_MAX};
+    block target3 = {EMPTY_BLOCK_ID, UINT64_MAX};
+    memcpy(BLOCK_DATA(b0), data0, sizeof(data0));
+    memcpy(BLOCK_DATA(b1), data1, sizeof(data1));
 
     RETURN_IF_ERROR(stash_add_block(stash0, &b0));
     RETURN_IF_ERROR(stash_add_block(stash0, &b1));
@@ -671,13 +693,13 @@ int test_stash_insert_read()
 
     bool b0_in_stash = false, b1_in_stash = false;
     bool b2_in_stash = false, b3_in_stash = false;
-    for(size_t i = 0; i < stash0->overflow_capacity; ++i) {
-        b0_in_stash = b0_in_stash || (stash0->overflow_blocks[i].id == b0.id);
-        b1_in_stash = b1_in_stash || (stash0->overflow_blocks[i].id == b1.id);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash0); ++i) {
+        b0_in_stash = b0_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash0))[i]) == BLOCK_ID(b0));
+        b1_in_stash = b1_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash0))[i]) == BLOCK_ID(b1));
     }
-    for(size_t i = 0; i < stash1->overflow_capacity; ++i) {
-        b2_in_stash = b2_in_stash || (stash1->overflow_blocks[i].id == b0.id);
-        b3_in_stash = b3_in_stash || (stash1->overflow_blocks[i].id == b1.id);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash1); ++i) {
+        b2_in_stash = b2_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash1))[i]) == BLOCK_ID(b0));
+        b3_in_stash = b3_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash1))[i]) == BLOCK_ID(b1));
     }
     TEST_ASSERT(b0_in_stash);
     TEST_ASSERT(b1_in_stash);
@@ -697,11 +719,11 @@ int test_stash_insert_read()
     // check that it is no longer in stash
     b0_in_stash = false; b1_in_stash = false;
     b2_in_stash = false; b3_in_stash = false;
-    for(size_t i = 0; i < stash0->overflow_capacity; ++i) {
-        b0_in_stash = b0_in_stash || (stash0->overflow_blocks[i].id == b0.id);
-        b1_in_stash = b1_in_stash || (stash0->overflow_blocks[i].id == b1.id);
-        b2_in_stash = b2_in_stash || (stash1->overflow_blocks[i].id == b0.id);
-        b3_in_stash = b3_in_stash || (stash1->overflow_blocks[i].id == b1.id);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash0); ++i) {
+        b0_in_stash = b0_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash0))[i]) == BLOCK_ID(b0));
+        b1_in_stash = b1_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash0))[i]) == BLOCK_ID(b1));
+        b2_in_stash = b2_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash1))[i]) == BLOCK_ID(b0));
+        b3_in_stash = b3_in_stash || (BLOCK_ID(((block*)STASH_OVERFLOW_BLOCKS(*stash1))[i]) == BLOCK_ID(b1));
     }
     TEST_ASSERT(!b0_in_stash);
     TEST_ASSERT(!b1_in_stash);
@@ -716,25 +738,26 @@ int test_stash_insert_read()
 int test_fill_stash() {
     size_t small_stash_size = 20;
     stash *stash = stash_create(20, small_stash_size);
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        block b = {.id = i, .position = 2*(100+i)};
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i) {
+        block b = {0}; BLOCK_ID(b) = i; BLOCK_POSITION(b) = 2*(100+i);
         RETURN_IF_ERROR(stash_add_block(stash, &b));
         // check that it is in the stash
     }
 
-    block b = {.id = stash->overflow_capacity, .position = 2*(100+stash->overflow_capacity)};
+    block b = {0};
+    BLOCK_ID(b) = STASH_OVERFLOW_CAPACITY(*stash); BLOCK_POSITION(b) = 2*(100+STASH_OVERFLOW_CAPACITY(*stash));
 
     // This will trigger an extension of the stash
     RETURN_IF_ERROR(stash_add_block(stash, &b));
 
     // now remove a block and then confirm that we have room
-    block target = {.id = EMPTY_BLOCK_ID, .position = UINT64_MAX};
+    block target = {0}; BLOCK_ID(target) = EMPTY_BLOCK_ID; BLOCK_POSITION(target) = UINT64_MAX;
 
     u64 search_block_id = 11;
     stash_scan_overflow_for_target(stash, search_block_id, &target);
-    TEST_ASSERT(target.id == search_block_id);
-    for(size_t i = 0; i < stash->overflow_capacity; ++i) {
-        TEST_ASSERT(stash->blocks[i].id != search_block_id);
+    TEST_ASSERT(BLOCK_ID(target) == search_block_id);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i) {
+        TEST_ASSERT(BLOCK_ID(((block*)STASH_BLOCKS(*stash))[i]) != search_block_id);
     }
     RETURN_IF_ERROR(stash_add_block(stash, &b));
 

@@ -104,7 +104,7 @@ fn cond_swap_blocks_jazz(
 }
 
 export
-fn selection_sort_jazz(
+fn odd_even_msort_jazz(
   reg u64 blocks block_level_assignments,
   reg u64 lb ub,
   reg u8 direction
@@ -112,7 +112,7 @@ fn selection_sort_jazz(
 {
   blocks = blocks;
   block_level_assignments = block_level_assignments;
-  selection_sort(blocks, block_level_assignments, lb, ub);
+  odd_even_msort(blocks, block_level_assignments, lb, ub);
 }
 
 export

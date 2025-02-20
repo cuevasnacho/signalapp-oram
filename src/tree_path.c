@@ -65,8 +65,8 @@ tree_path *tree_path_create(u64 leaf, u64 root)
 {
     size_t length = level(root) + 1;
     tree_path *t;
-    CHECK(t = malloc(sizeof(tree_path) + sizeof(u64) * length));
-    t->length = length;
+    CHECK(t = malloc(sizeof(u64) * (length + 1)));
+    (*t)[0] = length;
 
     tree_path_update(t, leaf);
 
@@ -77,8 +77,8 @@ tree_path *tree_path_create_jazz(u64 leaf, u64 root)
 {
     size_t length = level(root) + 1;
     tree_path *t;
-    CHECK(t = malloc(sizeof(tree_path) + sizeof(u64) * length));
-    t->length = length;
+    CHECK(t = malloc(sizeof(u64) * (length + 1)));
+    (*t)[0] = length;
 
     tree_path_update_jazz(t, leaf);
 
@@ -87,7 +87,7 @@ tree_path *tree_path_create_jazz(u64 leaf, u64 root)
 
 void tree_path_update(tree_path *t, u64 leaf)
 {
-    size_t root_level = t->length - 1;
+    size_t root_level = TREE_PATH_LENGTH(*t) - 1;
     u64 root = (1UL << root_level) - 1;
 
     // leaves are even numbers
@@ -99,11 +99,11 @@ void tree_path_update(tree_path *t, u64 leaf)
 
     tree_coords coords = coords_for_val(leaf);
 
-    t->values[0] = leaf;
+    TREE_PATH_VALUES(*t)[0] = leaf;
     while (coords.level < root_level)
     {
         coords = parent(coords);
-        t->values[coords.level] = node_val(coords);
+        TREE_PATH_VALUES(*t)[coords.level] = node_val(coords);
     }
 }
 

@@ -4,8 +4,8 @@
 #ifndef CDS_PATH_ORAM_BUCKET_H
 #define CDS_PATH_ORAM_BUCKET_H 1
 
-#include "util.h"
 #include <stdbool.h>
+#include "util.h"
 
 // 4 KB Page
 // This is the size of an SGX EPC page. We can vary this parameter as we are tuning performance.
@@ -24,7 +24,7 @@
 
 #define EMPTY_BLOCK_ID UINT64_MAX
 
-typedef struct bucket_store bucket_store;
+typedef u64 bucket_store[3];
 
 // Create a path ORAM bucket store with capacity for a tree with `num_levels` levels,
 // i.e. 2^num_levels - 1 tree nodes and 2^(num_levels - 1) leaf nodes/pathORAM positions.
@@ -33,13 +33,19 @@ void bucket_store_destroy(bucket_store *bucket_store);
 
 void bucket_store_clear(bucket_store *bucket_store);
 
-typedef struct block block;
+typedef u64 block[2 + BLOCK_DATA_SIZE_QWORDS];
+
+#define BLOCK_ID(b)        ((b)[0])
+#define BLOCK_POSITION(b)  ((b)[1])
+#define BLOCK_DATA(b)      (&(b)[2])
+/*
 struct block
 {
-    u64 id;
-    u64 position;
-    u64 data[BLOCK_DATA_SIZE_QWORDS];
+  u64 id;
+  u64 position;
+  u64 data[BLOCK_DATA_SIZE_QWORDS];
 };
+*/
 
 u64 bucket_store_root(const bucket_store *bucket_store);
 size_t bucket_store_num_levels(const bucket_store *bucket_store);

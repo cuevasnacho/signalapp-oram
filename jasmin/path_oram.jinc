@@ -288,9 +288,9 @@ fn oram_access_read(
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
   stash = [oram + 8 * STASH_ADDR];
+  () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
-  () = #spill(oram);
   () = #unspill(path);
   stash_build_path(stash, path);
   () = #unspill(oram);
@@ -341,9 +341,9 @@ fn oram_access_write(
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_write_accessor_full(target_block[2:BLOCK_DATA_SIZE_QWORDS], in_data);
 
   stash = [oram + 8 * STASH_ADDR];
+  () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
-  () = #spill(oram);
   () = #unspill(path);
   stash_build_path(stash, path);
   () = #unspill(oram);
@@ -401,9 +401,9 @@ fn oram_access_write_partial(
     _i_write_accessor_partial(target_block[2:BLOCK_DATA_SIZE_QWORDS], start, len, data, prev_data);
 
   stash = [oram + 8 * STASH_ADDR];
+  () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
-  () = #spill(oram);
   () = #unspill(path);
   stash_build_path(stash, path);
   () = #unspill(oram);
