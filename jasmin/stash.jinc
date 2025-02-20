@@ -525,55 +525,104 @@ fn comp_blocks(
   return r;
 }
 
-// Precondition: `blocks` and `block_level_assignments` length are the same and it is 2^k for some k
-fn bitonic_sort(
-  reg u64 blocks block_level_assignments
+inline
+fn min(reg u64 a b) -> reg u64
+{
+  // b ^ ((a ^ b) & -((a - b) >> 63));
+  reg u64 sub;
+  sub = a;
+  sub -= b;
+  sub >>= 63;
+  sub = -sub;
+  a = a;
+  a ^= b;
+  a &= sub;
+  b ^= a;
+  return b;
+}
+
+inline
+fn odd_even_msort(
+  reg u64 blocks block_level_assignments,
+  reg u64 lb ub
 )
 {
-  reg u64 size start k i i_bound j addr1 addr2 offset;
-  // for (size_t size = 2; size <= n; size <<= 1)
-  () = #spill(blocks);
-  size = 2;
-  while (size <= ARR_SIZE) {
-    // for (size_t start = 0; start < n; start += size)
-    start = 0;
-    while (start < ARR_SIZE) {
-      // for (size_t k = size>>1; k > 0; k >>= 1)
-      k = size;
-      () = #spill(size);
-      k >>= 1;
-      while (k > 0) {
-        // for (size_t i = start; i < start + size - k; i++)
-        i = start;
-        () = #unspill(size);
-        i_bound = #LEA(start + size);
-        () = #spill(size);
-        i_bound -= k;
-        while (i < i_bound) {
-          reg u8 cond;
-          j = #LEA(i + k);
-          () = #unspill(blocks);
-          cond = comp_blocks(blocks, block_level_assignments, i, j);
-          addr1 = blocks;
-          offset = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * i;
-          addr1 += offset;
-          offset = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * k;
-          addr2 = #LEA(addr1 + offset);
-          cond_swap_blocks(cond, addr1, addr2);
-          addr1 = block_level_assignments;
-          offset = 8 * i;
-          addr1 += offset;
-          offset = 8 * k;
-          addr2 = #LEA(addr1 + offset);
-          cond_obv_swap_u64(cond, addr1, addr2);
-          i += 1;
+  // indices variables
+  reg u64 p k j i;
+  // temporary variables
+  reg u64 bound mini idx1 idx2 divisor one tmp addr1 addr2;
+  // boolean variables
+  reg u8 cond;
+
+  () = #spill(blocks, block_level_assignments);
+  ub = ub; lb = lb;
+  p = 1; one = 1;
+  ub -= lb;
+  while (p < ub) {
+    k = p;
+    while (k >= 1) {
+      j = k;
+      tmp = p;
+      tmp -= 1;
+      j &= tmp;
+      j = j;
+      k = k;
+      bound = ub;
+      bound -= k;
+      while (j < bound) {
+        () = #spill(bound);
+        mini = ub;
+        mini -= j;
+        mini -= k;
+        mini = min(k, mini);
+        i = 0;
+        while (i < mini) {
+          () = #spill(mini);
+          idx1 = #LEA(i + j);
+          idx2 = #LEA(idx1 + k);
+          divisor = p;
+          divisor = #SHL(divisor, one);
+
+          idx1 = idx1 / divisor;
+          idx1 = idx1;
+          idx2 = idx2;
+          idx2 = idx2 / divisor;
+          if (idx1 == idx2) {
+            idx1 = #LEA(i + j);
+            idx1 = #LEA(idx1 + lb);
+            idx2 = #LEA(idx1 + k);
+            () = #spill(i, j, k, ub);
+            () = #unspill(blocks, block_level_assignments);
+            cond = comp_blocks(blocks, block_level_assignments, idx1, idx2);
+            // swap
+            addr1 = blocks;
+            tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx1;
+            addr1 += tmp;
+            tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx2;
+            addr2 = #LEA(blocks + tmp);
+            () = #spill(blocks);
+            cond_swap_blocks(cond, addr1, addr2);
+
+            addr1 = block_level_assignments;
+            tmp = 8 * idx1;
+            addr1 += tmp;
+            tmp = 8 * idx2;
+            addr2 = #LEA(block_level_assignments + tmp);
+            () = #spill(block_level_assignments);
+            cond_obv_swap_u64(cond, addr1, addr2);
+            () = #unspill(i, j, k, ub);
+          }
+          () = #unspill(mini);
+          i = #LEA(i + 1);
         }
-        k >>= 1;
+        tmp = k;
+        tmp = #SHL(tmp, one);
+        j = #LEA(j + tmp);
+        () = #unspill(bound);
       }
-      () = #unspill(size);
-      start += size;
+      k = #SHR(k, one);
     }
-    size <<= 1;
+    p = #SHL(p, one);
   }
 }
 
