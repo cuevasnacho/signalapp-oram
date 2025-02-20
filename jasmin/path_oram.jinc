@@ -6,7 +6,7 @@ fn oram_clear(
   reg u64 oram
 )
 {
-  reg u64 bucket_store stash allocated_ub;
+  reg u64 bucket_store stash;
   bucket_store = (64u)[oram];
   bucket_store_clear(bucket_store);
   stash = (64u)[oram + 8 * STASH_ADDR];

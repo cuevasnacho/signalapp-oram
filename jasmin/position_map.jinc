@@ -10,7 +10,7 @@ fn scan_position_map_get(
   reg u64 position
 )
 {
-  reg u64 position_map i;
+  reg u64 i;
   reg u8 cond;
   reg bool b;
 
