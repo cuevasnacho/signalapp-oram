@@ -242,9 +242,9 @@ fn oram_access_read(
   () = #spill(path);
 
   stash = [oram + 8 * STASH_ADDR];
+  () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
-  () = #spill(oram);
   () = #unspill(path);
   stash_build_path(stash, path);
   () = #unspill(oram);
@@ -295,9 +295,9 @@ fn oram_access_write(
   () = #spill(path);
 
   stash = [oram + 8 * STASH_ADDR];
+  () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
-  () = #spill(oram);
   () = #unspill(path);
   stash_build_path(stash, path);
   () = #unspill(oram);

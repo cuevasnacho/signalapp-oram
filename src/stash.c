@@ -365,19 +365,21 @@ static void bitonic_sort(block* blocks, u64* block_level_assignments, size_t lb,
 }
 
 static inline size_t min(size_t a, size_t b) {
-    return (a < b) ? a : b;
+    return U64_TERNARY(a < b, a, b);
 }
 
-static void odd_even_msort(block* blocks, u64 *block_level_assignments, size_t n) {
+static void odd_even_msort(block* blocks, u64 *block_level_assignments, size_t lb, size_t ub) {
+    size_t n = ub - lb;
     for (size_t p = 1; p < n; p <<= 1) {
         for (size_t k = p; k >= 1; k >>= 1) {
             size_t mod_kp = k % p;
             for (size_t j = mod_kp; j < n-k; j += 2*k) {
                 for (size_t i = 0; i < min(k, n-j-k); ++i) {
                     if (((i+j) / (p*2)) == ((i+j+k) / (p*2))) {
-                        bool cond = comp_blocks(blocks, block_level_assignments, i+j, i+j+k);
-                        cond_swap_blocks(cond, blocks + i + j, blocks + i + j + k);
-                        cond_obv_swap_u64(cond, block_level_assignments + i + j, block_level_assignments + i + j + k);
+                        size_t idx = i + j + lb;
+                        bool cond = comp_blocks(blocks, block_level_assignments, idx, idx+k);
+                        cond_swap_blocks(cond, blocks + idx, blocks + idx + k);
+                        cond_obv_swap_u64(cond, block_level_assignments + idx, block_level_assignments + idx + k);
                     }
                 }
             }
@@ -395,7 +397,7 @@ void print_bucket_assignments(const stash* stash) {
 void stash_build_path(stash* stash, const tree_path* path) {
     size_t overflow_size = stash_overflow_ub(stash);
     stash_assign_buckets(stash, path);
-    odd_even_msort((block*)STASH_BLOCKS(*stash), STASH_BUCKET_ASSIGNMENTS(*stash), BLOCKS_PER_BUCKET * STASH_PATH_LENGTH(*stash) + overflow_size);
+    odd_even_msort((block*)STASH_BLOCKS(*stash), STASH_BUCKET_ASSIGNMENTS(*stash), 0, BLOCKS_PER_BUCKET * STASH_PATH_LENGTH(*stash) + overflow_size);
     // print_bucket_assignments(stash);
 }
 
@@ -497,7 +499,7 @@ int test_oblv_sort() {
     memcpy(original_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
     memcpy(jazz_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
 
-    bitonic_sort(blocks, bucket_assignments, 0, num_blocks, true);
+    odd_even_msort(blocks, bucket_assignments, 0, num_blocks);
     odd_even_msort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
 
     for(size_t i = 1; i < num_blocks; ++i) {
@@ -514,6 +516,15 @@ int test_oblv_sort() {
         }
         TEST_ASSERT(found);
 
+        found = false;
+        for(size_t j = 0; j < num_blocks; ++j) {
+            if(BLOCK_ID(jazz_blocks[i]) == BLOCK_ID(original_blocks[j])) {
+                found = true;
+                TEST_ASSERT(jazz_bucket_assignments[i] == original_bucket_assignments[j]);
+                break;
+            }
+        }
+        TEST_ASSERT(found);
     }
     for(size_t i = 0; i < num_blocks; ++i) {
         TEST_ASSERT(bucket_assignments[i] == jazz_bucket_assignments[i]);
