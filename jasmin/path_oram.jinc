@@ -311,6 +311,7 @@ fn _oram_access_read(
   target_block, msf = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
   () = #spill(path);
   () = #unspill(out_data);
+  out_data = #protect(out_data, msf);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
   #declassify stash = [oram + 8 * STASH_ADDR];
