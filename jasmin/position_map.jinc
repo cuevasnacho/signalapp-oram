@@ -28,9 +28,10 @@ fn _scan_position_map_get(
 
 inline
 fn _scan_position_map_set(
-  reg u64 position_map,
-  reg u64 block_id position
-) -> reg u64
+  #public reg u64 position_map,
+  #secret reg u64 block_id,
+  #secret reg u64 position
+) -> #secret reg u64
 {
   reg u64 prev_position i;
   reg u8 cond;
@@ -74,14 +75,14 @@ fn position_map_get(
 
 inline
 fn position_map_read_then_set(
-  reg u64 position_map,
-  reg u64 block_id,
-  reg u64 position
-) -> reg u64
+  #public reg u64 position_map,
+  #secret reg u64 block_id,
+  #secret reg u64 position
+) -> #secret reg u64
 {
   reg u64 x data;
   if (POSITION_MAP_SIZE < SCAN_THRESHOLD) {
-    data = [position_map + 8 * 3];  // *data
+    #declassify data = [position_map + 8 * 3];  // *data
     x = _scan_position_map_set(data, block_id, position);
   } else {
     // implement oram

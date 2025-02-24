@@ -3,13 +3,13 @@ require "position_map.jinc"
 
 inline
 fn oram_clear(
-  reg u64 oram
+  #public reg u64 oram
 )
 {
   reg u64 bucket_store stash;
-  bucket_store = (64u)[oram];
+  #declassify bucket_store = (64u)[oram];
   bucket_store_clear(bucket_store);
-  stash = (64u)[oram + 8 * STASH_ADDR];
+  #declassify stash = (64u)[oram + 8 * STASH_ADDR];
   stash_clear(stash);
   (u64)[oram + 8 * ALLOCATED_UB_ADDR] = 0;
 }
@@ -72,7 +72,7 @@ fn _oram_read_path_for_block(
 inline
 fn _i_oram_read_path_for_block(
   reg u64 oram path,
-  reg u64 target_block_id,
+  #secret reg u64 target_block_id,
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target,
   reg u64 new_position
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
@@ -81,11 +81,11 @@ fn _i_oram_read_path_for_block(
   inline int i;
 
   () = #spill(new_position);
-  stash = (64u)[oram + 8 * STASH_ADDR];
-  bucket_store = [oram];
+  #declassify stash = (64u)[oram + 8 * STASH_ADDR];
+  #declassify bucket_store = [oram];
   for i = 0 to PATH_LENGTH
   {
-    value = (64u)[path + 8 + 8 * i];
+    #declassify value = (64u)[path + 8 + 8 * i];
     target = _i_stash_add_path_bucket(stash, bucket_store, value, target_block_id, target);
   }
   target = _i_stash_scan_overflow_for_target(stash, target_block_id, target);
@@ -255,9 +255,9 @@ fn _i_write_accessor_partial(
 
 inline
 fn _oram_access_read(
-  reg u64 oram,
-  reg u64 block_id,
-  reg u64 out_data
+  #public reg u64 oram,
+  #secret reg u64 block_id,
+  #public reg u64 out_data
 )
 {
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
@@ -275,11 +275,11 @@ fn _oram_access_read(
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
   new_position = _random_mod_by_pow_of_2(max_position);
-  position_map = [oram + 8 * POSITION_MAP_ADDR];
+  #declassify position_map = [oram + 8 * POSITION_MAP_ADDR];
   x = position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
 
-  path = [oram + 8 * PATH_ADDR];
+  #declassify path = [oram + 8 * PATH_ADDR];
   tree_path_update(path, x);
 
   new_position *= 2;
@@ -287,7 +287,7 @@ fn _oram_access_read(
   () = #spill(path);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
-  stash = [oram + 8 * STASH_ADDR];
+  #declassify stash = [oram + 8 * STASH_ADDR];
   () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
@@ -295,12 +295,12 @@ fn _oram_access_read(
   stash_build_path(stash, path);
   () = #unspill(oram);
 
-  bucket_store = [oram];
-  path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
+  #declassify bucket_store = [oram];
+  #declassify path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   for i = 0 to PATH_LENGTH
   {
-    bucket_id = [path + 8 + 8 * i];
+    #declassify bucket_id = [path + 8 + 8 * i];
     bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks);
     path_blocks += (64u)offset;
   }
@@ -308,9 +308,9 @@ fn _oram_access_read(
 
 inline
 fn _oram_access_write(
-  reg u64 oram,
-  reg u64 block_id,
-  reg u64 in_data
+  #public reg u64 oram,
+  #secret reg u64 block_id,
+  #public reg u64 in_data
 )
 {
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
@@ -328,11 +328,11 @@ fn _oram_access_write(
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
   new_position = _random_mod_by_pow_of_2(max_position);
-  position_map = [oram + 8 * POSITION_MAP_ADDR];
+  #declassify position_map = [oram + 8 * POSITION_MAP_ADDR];
   x = position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
 
-  path = [oram + 8 * PATH_ADDR];
+  #declassify path = [oram + 8 * PATH_ADDR];
   tree_path_update(path, x);
 
   new_position *= 2;
@@ -340,7 +340,7 @@ fn _oram_access_write(
   () = #spill(path);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_write_accessor_full(target_block[2:BLOCK_DATA_SIZE_QWORDS], in_data);
 
-  stash = [oram + 8 * STASH_ADDR];
+  #declassify stash = [oram + 8 * STASH_ADDR];
   () = #spill(oram);
   target_block = _i_stash_add_block(stash, target_block);
 
@@ -348,12 +348,12 @@ fn _oram_access_write(
   stash_build_path(stash, path);
   () = #unspill(oram);
 
-  bucket_store = [oram];
-  path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
+  #declassify bucket_store = [oram];
+  #declassify path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   for i = 0 to PATH_LENGTH
   {
-    bucket_id = [path + 8 + 8 * i];
+    #declassify bucket_id = [path + 8 + 8 * i];
     bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks);
     path_blocks += (64u)offset;
   }

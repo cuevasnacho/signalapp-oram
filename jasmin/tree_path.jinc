@@ -35,20 +35,20 @@ fn _level(
 inline
 fn coords_for_val(
   reg u64 val
-) -> reg u64, reg u64
+) -> reg u64
 {
   reg u64 level lmod lres;
   level = _level(val);
+  level = #LEA(level + 1);
   lmod = 1;
   lmod = #SHL(lmod, level);
-  lmod = #SHL(lmod, 1);
   lres = lmod;
   lres >>= 1;
   lres = lres - 1;
   val = val;
   val -= lres;
-  val = val / lmod;
-  return level, val;
+  val = #SHR(val, level);
+  return val;
 }
 
 inline
@@ -56,10 +56,9 @@ fn parent(
   reg u64 level offset
 ) -> reg u64, reg u64
 {
-  reg u64 p_level p_offset;
-  p_level = level + 1;
-  p_offset = offset >> 1;
-  return p_level, p_offset;
+  level = #LEA(level + 1);
+  offset = offset >> 1;
+  return level, offset;
 }
 
 inline
@@ -81,16 +80,19 @@ fn node_val(
 
 inline
 fn tree_path_update(
-  reg u64 t,
-  reg u64 leaf
+  #public reg u64 t,
+  #secret reg u64 leaf
 )
 {
-  reg u64 root_level root level offset;
+  reg u64 level offset;
+  inline int root root_level;
+
   root_level = PATH_LENGTH - 1;
   root = ((64u)1 << root_level) - 1;
 
-  level, offset = coords_for_val(leaf);
+  offset = coords_for_val(leaf);
   t = #LEA(t + 8);
+  level = 0;
   (u64)[t] = leaf;
   while (level < root_level) {
     level, offset = parent(level, offset);
