@@ -2,42 +2,44 @@ require "path_oram.jinc"
 
 export
 fn oram_access_read_jazz(
-  #public reg u64 oram,
+  #transient reg u64 oram,
   #secret reg u64 block_id,
-  #public reg u64 out_data
+  #transient reg u64 out_data
 )
 {
+  _ = #init_msf();
+
   oram = oram;
   block_id = block_id;
   out_data = out_data;
   _oram_access_read(oram, block_id, out_data);
 }
 
-export
-fn oram_access_write_jazz(
-  #public reg u64 oram,
-  #secret reg u64 block_id,
-  #public reg u64 in_data
-)
-{
-  oram = oram;
-  block_id = block_id;
-  in_data = in_data;
-  _oram_access_write(oram, block_id, in_data);
-}
+// export
+// fn oram_access_write_jazz(
+//   #public reg u64 oram,
+//   #secret reg u64 block_id,
+//   #public reg u64 in_data
+// )
+// {
+//   oram = oram;
+//   block_id = block_id;
+//   in_data = in_data;
+//   _oram_access_write(oram, block_id, in_data);
+// }
 
-export
-fn oram_access_write_partial_jazz(
-  reg u64 oram,
-  reg u64 block_id start len,
-  reg u64 data prev_data
-)
-{
-  oram = oram; block_id = block_id;
-  start = start; len = len; data = data;
-  prev_data = prev_data;
-  _oram_access_write_partial(oram, block_id, start, len, data, prev_data);
-}
+// export
+// fn oram_access_write_partial_jazz(
+//   reg u64 oram,
+//   reg u64 block_id start len,
+//   reg u64 data prev_data
+// )
+// {
+//   oram = oram; block_id = block_id;
+//   start = start; len = len; data = data;
+//   prev_data = prev_data;
+//   _oram_access_write_partial(oram, block_id, start, len, data, prev_data);
+// }
 
 export
 fn oram_clear_jazz(

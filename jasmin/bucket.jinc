@@ -35,14 +35,16 @@ fn bucket_store_root() -> reg u64
 fn bucket_store_read_bucket_blocks(
   reg u64 bucket_store,
   reg u64 bucket_id,
-  reg u64 bucket_data
-)
+  reg u64 bucket_data,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 offset encrypted_bucket data;
   reg u8 t8;
   inline int i;
 
   #declassify data = (64u)[bucket_store + 16];
+  data = #protect(data, msf);
   offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
   encrypted_bucket = data + offset;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET * 8
@@ -50,19 +52,22 @@ fn bucket_store_read_bucket_blocks(
     t8 = (u8)[encrypted_bucket + i];
     (u8)[bucket_data + i] = t8;
   }
+  return msf;
 }
 
 fn bucket_store_write_bucket_blocks(
   reg u64 bucket_store,
   reg u64 bucket_id,
-  reg u64 bucket_data
-)
+  reg u64 bucket_data,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 offset encrypted_bucket data;
   reg u8 t8;
   inline int i;
 
   #declassify data = (64u)[bucket_store + 16];
+  data = #protect(data, msf);
   offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
   encrypted_bucket = data + offset;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET * 8
@@ -70,4 +75,6 @@ fn bucket_store_write_bucket_blocks(
     t8 = (u8)[bucket_data + i];
     (u8)[encrypted_bucket + i] = t8;
   }
+
+  return msf;
 }

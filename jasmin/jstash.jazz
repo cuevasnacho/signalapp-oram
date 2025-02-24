@@ -11,10 +11,13 @@ fn stash_add_path_bucket_jazz(
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_s;
   inline int i;
 
+  #msf reg u64 msf;
+  msf = #init_msf();
+  
   target_p = target_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { target_p[u64 i] = (u64)[target + 8 * i]; }
-  target_p = _i_stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target_p);
+  target_p, msf = _i_stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target_p, msf);
 
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { (u64)[target + 8 * i] = target_p[u64 i]; }
@@ -31,10 +34,13 @@ fn stash_scan_overflow_for_target_jazz(
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_s;
   inline int i;
 
+  #msf reg u64 msf;
+  msf = #init_msf();
+
   target_p = target_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { target_p[u64 i] = (u64)[target + 8 * i]; }
-  target_p = _i_stash_scan_overflow_for_target(stash, target_block_id, target_p);
+  target_p, msf = _i_stash_scan_overflow_for_target(stash, target_block_id, target_p, msf);
 
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { (u64)[target + 8 * i] = target_p[u64 i]; }
@@ -55,8 +61,11 @@ fn stash_assign_block_to_bucket_jazz(
   reg u64 index
 )
 {
+  #msf reg u64 msf;
+  msf = #init_msf();
+
   t = t;
-  _stash_assign_block_to_bucket(stash, path, t, index);
+  msf = _stash_assign_block_to_bucket(stash, path, t, index, msf);
 }
 
 export
@@ -64,7 +73,10 @@ fn stash_place_empty_blocks_jazz(
   reg u64 stash
 )
 {
-  _stash_place_empty_blocks(stash);
+  #msf reg u64 msf;
+  msf = #init_msf();
+
+  msf = _stash_place_empty_blocks(stash, msf);
 }
 
 export
@@ -72,7 +84,10 @@ fn stash_assign_buckets_jazz(
   reg u64 stash path
 )
 {
-  _stash_assign_buckets(stash, path);
+  #msf reg u64 msf;
+  msf = #init_msf();
+
+  msf = _stash_assign_buckets(stash, path, msf);
 }
 
 export
@@ -120,7 +135,10 @@ fn stash_build_path_jazz(
   reg u64 stash path
 )
 {
-  stash_build_path(stash, path);
+  #msf reg u64 msf;
+  msf = #init_msf();
+
+  msf = stash_build_path(stash, path, msf);
 }
 
 export

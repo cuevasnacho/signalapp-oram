@@ -17,7 +17,9 @@ fn bucket_store_read_bucket_blocks_jazz(
   reg u64 bucket_data
 )
 {
-  bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_data);
+  #msf reg u64 msf;
+  msf = #init_msf();
+  msf = bucket_store_read_bucket_blocks(bucket_store, bucket_id, bucket_data, msf);
 }
 
 export
@@ -27,5 +29,8 @@ fn bucket_store_write_bucket_blocks_jazz(
   reg u64 bucket_data
 )
 {
-  bucket_store_write_bucket_blocks(bucket_store, bucket_id, bucket_data);
+  #msf reg u64 msf;
+  msf = #init_msf();
+
+  msf = bucket_store_write_bucket_blocks(bucket_store, bucket_id, bucket_data, msf);
 }

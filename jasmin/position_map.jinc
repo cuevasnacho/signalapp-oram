@@ -30,18 +30,19 @@ inline
 fn _scan_position_map_set(
   #public reg u64 position_map,
   #secret reg u64 block_id,
-  #secret reg u64 position
-) -> #secret reg u64
+  #secret reg u64 position,
+  #msf reg u64 msf
+) -> #secret reg u64, #msf reg u64
 {
   reg u64 prev_position i;
   reg u8 cond;
-  reg bool b;
+  reg bool b wcond;
 
   prev_position = position;
   // linear scan of array so that every access looks the same.
   i = 0;
-  while (i < POSITION_MAP_SIZE)
-  {
+  while { wcond = i < POSITION_MAP_SIZE; } (wcond) {
+    msf = #update_msf(wcond, msf);
     b = (64u)i == block_id;
     cond = #SETcc(b);
     
@@ -56,7 +57,9 @@ fn _scan_position_map_set(
     position_map = #LEA(position_map + 8);
     i = #LEA(i + 1);
   }
-  return prev_position;
+  msf = #update_msf(!wcond, msf);
+
+  return prev_position, msf;
 }
 
 inline
@@ -77,16 +80,13 @@ inline
 fn position_map_read_then_set(
   #public reg u64 position_map,
   #secret reg u64 block_id,
-  #secret reg u64 position
-) -> #secret reg u64
+  #secret reg u64 position,
+  #msf reg u64 msf
+) -> #secret reg u64, #msf reg u64
 {
   reg u64 x data;
-  if (POSITION_MAP_SIZE < SCAN_THRESHOLD) {
-    #declassify data = [position_map + 8 * 3];  // *data
-    x = _scan_position_map_set(data, block_id, position);
-  } else {
-    // implement oram
-    x = 0;
-  }
-  return x;
+  #declassify data = [position_map + 8 * 3];  // *data
+  data = #protect(data, msf);
+  x, msf = _scan_position_map_set(data, block_id, position, msf);
+  return x, msf;
 }

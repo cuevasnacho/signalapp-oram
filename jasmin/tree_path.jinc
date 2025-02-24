@@ -81,10 +81,12 @@ fn node_val(
 inline
 fn tree_path_update(
   #public reg u64 t,
-  #secret reg u64 leaf
-)
+  #secret reg u64 leaf,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 level offset;
+  reg bool cond;
   inline int root root_level;
 
   root_level = PATH_LENGTH - 1;
@@ -94,10 +96,14 @@ fn tree_path_update(
   t = #LEA(t + 8);
   level = 0;
   (u64)[t] = leaf;
-  while (level < root_level) {
+  while { cond = level < root_level; } (cond) {
+    msf = #update_msf(cond, msf);
     level, offset = parent(level, offset);
     (u64)[t + 8 * level] = node_val(level, offset);
   }
+  msf = #update_msf(!cond, msf);
+
+  return msf;
 }
 
 inline
