@@ -71,7 +71,7 @@ fn _oram_read_path_for_block(
     value = (64u)[path + 8 + 8 * i];
     msf = stash_add_path_bucket(stash, bucket_store, value, target_block_id, target, msf);
   }
-  stash_scan_overflow_for_target(stash, target_block_id, target);
+  msf = stash_scan_overflow_for_target(stash, target_block_id, target, msf);
 
   () = #unspill(new_position);
   (u64)[target] = target_block_id;
@@ -99,7 +99,7 @@ fn _i_oram_read_path_for_block(
   bucket_store = #protect(bucket_store, msf);
   for i = 0 to PATH_LENGTH
   {
-    #declassify value = (64u)[path + 8 + 8 * i];
+    #declassify value = (64u)[path + 8 + 8 * i];  //! if value is secret we cannot read in _i_stash_add_path_bucket:205
     value = #protect(value, msf);
     target, msf = _i_stash_add_path_bucket(stash, bucket_store, value, target_block_id, target, msf);
   }
@@ -336,7 +336,7 @@ fn _oram_access_read(
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   for i = 0 to PATH_LENGTH
   {
-    #declassify bucket_id = [path + 8 + 8 * i];
+    #declassify bucket_id = [path + 8 + 8 * i]; //! if bucket_id is secret we cannot use it as an offset
     bucket_id = #protect(bucket_id, msf);
     msf = bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks, msf);
     path_blocks += (64u)offset;

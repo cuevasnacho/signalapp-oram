@@ -32,7 +32,7 @@ fn _stash_overflow_ub(
   reg u64 zero;
   reg bool b cond;
 
-  #declassify i = (64u)[stash + 8 * OVERFLOW_CAPACITY_ADDR];
+  #declassify i = (64u)[stash + 8 * OVERFLOW_CAPACITY_ADDR];  //! is it secret?
   i = #protect(i, msf);
   #declassify overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
   overflow_blocks = #protect(overflow_blocks, msf);
@@ -43,7 +43,7 @@ fn _stash_overflow_ub(
   while { cond = i > 0; } (cond) {
     msf = #update_msf(cond, msf);
     overflow_blocks -= 8 * DECRYPTED_BLOCK_SIZE_QWORDS; // (i - 1)
-    #declassify bid = (64u)[overflow_blocks];
+    #declassify bid = (64u)[overflow_blocks]; //! if bid is secret we cannot use it in condition
     bid = #protect(bid, msf);
     b = bid != EMPTY_BLOCK_ID;
     j = zero;
@@ -216,15 +216,13 @@ fn _i_stash_add_path_bucket(
 fn stash_scan_overflow_for_target(
   reg u64 stash,
   reg u64 target_block_id,
-  reg u64 target
-)
+  reg u64 target,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 ub i bid overflow_blocks;
   reg u8 c;
   reg bool cond;
-
-  #msf reg u64 msf;
-  msf = #init_msf();
 
   ub, msf = _stash_overflow_ub(stash, msf);
   overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
@@ -238,6 +236,8 @@ fn stash_scan_overflow_for_target(
     overflow_blocks += 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
     i += 1;
   }
+
+  return msf;
 }
 
 fn _i_stash_scan_overflow_for_target(
