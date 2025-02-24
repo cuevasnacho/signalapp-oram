@@ -662,15 +662,19 @@ fn stash_build_path(
 
 inline
 fn stash_clear(
-  reg u64 stash
-)
+  reg u64 stash,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 blocks;
   inline int i;
 
   #declassify blocks = [stash];
+  blocks = #protect(blocks, msf);
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * STASH_NUM_BLOCKS
   {
     (u64)[blocks + 8 * i] = -1;
   }
+
+  return msf;
 }

@@ -2,18 +2,25 @@ require "tree_path.jinc"
 
 inline
 fn bucket_store_clear(
-  reg u64 bucket_store
-)
+  reg u64 bucket_store,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 i bound data;
-  i = 0;
+  reg bool cond;
+
   #declassify data = (64u)[bucket_store + 16];
+  data = #protect(data, msf);
   bound = ((1 << PATH_LENGTH) - 1) * ENCRYPTED_BUCKET_SIZE;
-  while (i < bound)
-  {
+  i = 0;
+  while { cond = i < bound; } (cond) {
+    msf = #update_msf(cond, msf);
     (u8)[data + i] = -1;
     i += 1;
   }
+  msf = #update_msf(!cond, msf);
+
+  return msf;
 }
 
 inline

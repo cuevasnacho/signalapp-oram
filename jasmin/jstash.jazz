@@ -128,5 +128,7 @@ fn stash_clear_jazz(
   reg u64 stash
 )
 {
-  stash_clear(stash);
+  #msf reg u64 msf;
+  msf = #init_msf();
+  stash_clear(stash, msf);
 }

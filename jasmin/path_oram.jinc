@@ -3,15 +3,23 @@ require "position_map.jinc"
 
 inline
 fn oram_clear(
-  #public reg u64 oram
-)
+  #public reg u64 oram,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 bucket_store stash;
+
   #declassify bucket_store = (64u)[oram];
-  bucket_store_clear(bucket_store);
+  bucket_store = #protect(bucket_store, msf);
+  msf = bucket_store_clear(bucket_store, msf);
+
   #declassify stash = (64u)[oram + 8 * STASH_ADDR];
-  stash_clear(stash);
+  stash = #protect(stash, msf);
+  msf = stash_clear(stash, msf);
+
   (u64)[oram + 8 * ALLOCATED_UB_ADDR] = 0;
+
+  return msf;
 }
 
 inline

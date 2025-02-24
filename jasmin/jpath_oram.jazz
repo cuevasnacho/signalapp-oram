@@ -41,8 +41,10 @@ fn oram_access_write_partial_jazz(
 
 export
 fn oram_clear_jazz(
-  #public reg u64 oram
+  #transient reg u64 oram
 )
 {
-  oram_clear(oram);
+  #msf reg u64 msf;
+  msf = #init_msf();
+  msf = oram_clear(oram, msf);
 }
