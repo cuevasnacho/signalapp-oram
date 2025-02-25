@@ -39,3 +39,30 @@ fn oram_clear_jazz(
   msf = #init_msf();
   msf = oram_clear(oram, msf);
 }
+
+export
+fn oram_allocate_block_jazz(
+  #transient reg u64 oram
+) -> reg u64
+{
+  reg u64 r;
+  #msf reg u64 msf;
+  msf = #init_msf();
+
+  r = oram_allocate_block(oram, msf);
+  return r;
+}
+
+export
+fn oram_allocate_contiguous_jazz(
+  #transient reg u64 oram,
+  reg u64 num_blocks
+) -> reg u64
+{
+  reg u64 r;
+  #msf reg u64 msf;
+  msf = #init_msf();
+
+  r = oram_allocate_contiguous(oram, num_blocks, msf);
+  return r;
+}

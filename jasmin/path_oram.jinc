@@ -486,15 +486,22 @@ fn _oram_access_write_partial(
 
 inline
 fn oram_allocate_block(
-  reg u64 oram
+  #public reg u64 oram,
+  #msf reg u64 msf
 ) -> reg u64
 {
   reg u64 allocated_ub requested_ub;
-  allocated_ub = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
-  if (allocated_ub < CAPACITY_BLOCKS) {
+  reg bool cond;
+
+  #declassify allocated_ub = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
+  allocated_ub = #protect(allocated_ub, msf);
+  cond = allocated_ub < CAPACITY_BLOCKS;
+  if (cond) {
+    msf = #update_msf(cond, msf);
     requested_ub = #LEA(allocated_ub + 1);
     (u64)[oram + 8 * ALLOCATED_UB_ADDR] = requested_ub;
   } else {
+    msf = #update_msf(!cond, msf);
     allocated_ub = -1;
   }
   return allocated_ub;
@@ -502,18 +509,24 @@ fn oram_allocate_block(
 
 inline
 fn oram_allocate_contiguous(
-  reg u64 oram,
-  reg u64 num_blocks
+  #public reg u64 oram,
+  reg u64 num_blocks,
+  #msf reg u64 msf
 ) -> reg u64
 {
   reg u64 requested_ub next_block allocated_ub;
+  reg bool cond;
 
-  allocated_ub = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
+  #declassify allocated_ub = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
+  allocated_ub = #protect(allocated_ub, msf);
   requested_ub = #LEA(allocated_ub + num_blocks);
-  if (requested_ub <= CAPACITY_BLOCKS) {
+  cond = requested_ub <= CAPACITY_BLOCKS;
+  if (cond) {
+    msf = #update_msf(cond, msf);
     next_block = allocated_ub;
     (u64)[oram + 8 * ALLOCATED_UB_ADDR] = requested_ub;
   } else {
+    msf = #update_msf(!cond, msf);
     next_block = -1;
   }
   return next_block;
