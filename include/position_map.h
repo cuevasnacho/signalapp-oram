@@ -68,5 +68,9 @@ size_t position_map_size_bytes(size_t num_blocks, size_t stash_overflow_size);
 
 #ifdef IS_TEST
 int private_position_map_tests();
+
+// jasmin functions
+void position_map_get_jazz(const position_map *position_map, u64 block_id, u64* position);
+u64 position_map_read_then_set_jazz(position_map *position_map, u64 block_id, u64 position);
 #endif // IS_TEST
 #endif // CDS_PATH_ORAM_POSITION_MAP_H

@@ -105,34 +105,44 @@ int test_position_map_put_get()
 int test_position_map_put_get_repeat()
 {
     size_t num_positions = 1 << 10;
-    position_map *pm = position_map_create(num_positions, num_positions, TEST_STASH_SIZE, getentropy);
+    position_map *pm0 = position_map_create(num_positions, num_positions, TEST_STASH_SIZE, getentropy);
+    position_map *pm1 = position_map_create(num_positions, num_positions, TEST_STASH_SIZE, getentropy);
 
     for (size_t i = 0; i < num_positions; ++i)
     {
         u64 prev;
-        RETURN_IF_ERROR(position_map_read_then_set(pm, i, i, &prev));
+        RETURN_IF_ERROR(position_map_read_then_set(pm0, i, i, &prev));
+        prev = position_map_read_then_set_jazz(pm1, i, i);
     }
 
     for (size_t i = 0; i < num_positions; ++i)
     {
         u64 result;
-        RETURN_IF_ERROR(position_map_get(pm, i, &result));
+        RETURN_IF_ERROR(position_map_get(pm0, i, &result));
+        TEST_ASSERT(result == i);
+        position_map_get_jazz(pm1, i, &result);
         TEST_ASSERT(result == i);
     }
     for (size_t i = 0; i < num_positions; ++i)
     {
         u64 old_pos = 0;
-        RETURN_IF_ERROR(position_map_read_then_set(pm, i, num_positions - i, &old_pos));
+        RETURN_IF_ERROR(position_map_read_then_set(pm0, i, num_positions - i, &old_pos));
+        TEST_ASSERT(old_pos == i);
+        old_pos = 0;
+        old_pos = position_map_read_then_set_jazz(pm1, i, num_positions - i);
         TEST_ASSERT(old_pos == i);
     }
 
     for (size_t i = 0; i < num_positions; ++i)
     {
         u64 result;
-        RETURN_IF_ERROR(position_map_get(pm, i, &result));
+        RETURN_IF_ERROR(position_map_get(pm0, i, &result));
+        TEST_ASSERT(result == num_positions - i);
+        position_map_get_jazz(pm1, i, &result);
         TEST_ASSERT(result == num_positions - i);
     }
-    position_map_destroy(pm);
+    position_map_destroy(pm0);
+    position_map_destroy(pm1);
 
     return err_SUCCESS;
 }

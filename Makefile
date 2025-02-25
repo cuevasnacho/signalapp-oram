@@ -8,16 +8,19 @@ CFLAGS = -DIS_TEST -Wall -Wextra -g -O3 -fomit-frame-pointer
 .PHONY: clean run
 
 # test commands
-test-tree_path: build/test_tree_path
+tree_path: build/test_tree_path
 	./build/test_tree_path
 
-test-bucket: build/test_bucket
+bucket: build/test_bucket
 	./build/test_bucket
 
-test-stash: build/test_stash
+stash: build/test_stash
 	./build/test_stash
 
-test-oram: build/test_path_oram
+position_map: build/test_position_map
+	./build/test_position_map
+
+oram: build/test_path_oram
 	./build/test_path_oram
 
 
@@ -30,6 +33,9 @@ build/test_bucket: src/bucket.c src/tree_path.c build/jtree_path.s build/jbucket
 
 build/test_stash: src/bucket.c src/tree_path.c src/stash.c build/jtree_path.s build/jbucket.s build/jstash.s tests/test_stash.c
 	$(CC) $(CFLAGS) -o build/test_stash src/bucket.c src/tree_path.c src/stash.c build/jtree_path.s build/jbucket.s build/jstash.s tests/test_stash.c
+
+build/test_position_map: src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_position_map.c syscall/jasmin_syscall.o
+	$(CC) $(CFLAGS) -o build/test_position_map src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_position_map.c syscall/jasmin_syscall.o
 
 build/test_path_oram: src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
 	$(CC) $(CFLAGS) -o build/test_path_oram src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
@@ -51,7 +57,11 @@ setparams-bucket: jasmin/params.jinc
 setparams-stash: jasmin/params.jinc
 	sed -i 's/^param int PATH_LENGTH = [0-9]\+;/param int PATH_LENGTH = 18;/' jasmin/params.jinc
 
+setparams-position_map: jasmin/params.jinc
+	sed -i 's/^param int POSITION_MAP_SIZE = [A-Z_0-9]\+;/param int POSITION_MAP_SIZE = 1024;/' jasmin/params.jinc
+
 setparams-oram: jasmin/params.jinc
+	sed -i 's/^param int POSITION_MAP_SIZE = [0-9]\+;/param int POSITION_MAP_SIZE = CAPACITY_BLOCKS;/' jasmin/params.jinc
 	sed -i 's/^param int PATH_LENGTH = [0-9]\+;/param int PATH_LENGTH = 13;/' jasmin/params.jinc
 
 
