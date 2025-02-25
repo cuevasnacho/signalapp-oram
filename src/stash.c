@@ -416,7 +416,7 @@ error_t stash_clear(stash* stash) {
 void cond_copy_block_jazz(bool cond, block* dst, const block* src);
 void cond_swap_blocks_jazz(bool cond, block* a, block* b);
 void stash_add_block_jazz(stash* stash, block* new_block);
-void odd_even_msort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
+void odd_even_msort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub);
 
 void stash_print(const stash *stash)
 {
@@ -500,7 +500,7 @@ int test_oblv_sort() {
     memcpy(jazz_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
 
     odd_even_msort(blocks, bucket_assignments, 0, num_blocks);
-    odd_even_msort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks, true);
+    odd_even_msort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks);
 
     for(size_t i = 1; i < num_blocks; ++i) {
         // check that it is sorted
