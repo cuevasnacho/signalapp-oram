@@ -610,28 +610,35 @@ fn _min(reg u64 a b) -> reg u64
 
 inline
 fn _odd_even_msort(
-  reg u64 blocks block_level_assignments,
-  reg u64 lb ub
-)
+  #public reg u64 blocks block_level_assignments,
+  reg u64 lb ub,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   // indices variables
   reg u64 p k j i;
+  // mmx
+  #mmx reg u64 msf_s;
   // temporary variables
   reg u64 bound mini idx1 idx2 divisor one tmp addr1 addr2;
   // boolean variables
   reg u8 cond;
+  reg bool b;
 
   () = #spill(blocks, block_level_assignments);
   ub = ub; lb = lb;
   ub -= lb;
   () = #spill(lb);
   p = 1; one = 1;
-  while (p < ub) {
+  while { b = p < ub; } (b) {
+    msf = #update_msf(b, msf);
     k = p;
     () = #spill(p);
-    while (k >= 1) {
+    while { b = k >= 1; } (b) {
+      msf = #update_msf(b, msf);
       j = k;
       () = #unspill(p);
+      p = #protect(p, msf);
       tmp = p;
       () = #spill(p);
       tmp -= 1;
@@ -640,18 +647,22 @@ fn _odd_even_msort(
       k = k;
       bound = ub;
       bound -= k;
-      while (j < bound) {
+      while { b = j < bound; } (b) {
+        msf = #update_msf(b, msf);
         () = #spill(bound);
         mini = ub;
         mini -= j;
         mini -= k;
         mini = _min(k, mini);
         i = 0;
-        while (i < mini) {
+        while { b = i < mini; } (b) {
+          msf = #update_msf(b, msf);
           () = #spill(mini);
           idx1 = #LEA(i + j);
           idx2 = #LEA(idx1 + k);
           () = #unspill(p);
+          p = #protect(p, msf);
+          msf_s = #mov_msf(msf);
           divisor = p;
           () = #spill(p);
           divisor = #SHL(divisor, one);
@@ -660,15 +671,22 @@ fn _odd_even_msort(
           idx1 = idx1;
           idx2 = idx2;
           idx2 = idx2 / divisor;
-          if (idx1 == idx2) {
+          b = idx1 == idx2;
+          msf = #mov_msf(msf_s);
+          if (b) {
+            msf = #update_msf(b, msf);
+            msf_s = #mov_msf(msf);
             idx1 = #LEA(i + j);
             () = #spill(i, j, ub);
             () = #unspill(lb);
+            lb = #protect(lb, msf);
             idx1 = #LEA(idx1 + lb);
             () = #spill(lb);
             idx2 = #LEA(idx1 + k);
             () = #spill(k);
             () = #unspill(blocks, block_level_assignments);
+            blocks = #protect(blocks, msf);
+            block_level_assignments = #protect(block_level_assignments, msf);
             cond = _comp_blocks(blocks, block_level_assignments, idx1, idx2);
             // swap
             addr1 = blocks;
@@ -686,22 +704,37 @@ fn _odd_even_msort(
             addr2 = #LEA(block_level_assignments + tmp);
             () = #spill(block_level_assignments);
             _cond_obv_swap_u64(cond, addr1, addr2);
+            msf = #mov_msf(msf_s);
             () = #unspill(i, j, k, ub);
+            i = #protect(i, msf);
+            j = #protect(j, msf);
+            k = #protect(k, msf);
+            ub = #protect(ub, msf);
+          } else {
+            msf = #update_msf(!b, msf);
           }
           () = #unspill(mini);
+          mini = #protect(mini, msf);
           i = #LEA(i + 1);
-          _ = #init_msf();
         }
+        msf = #update_msf(!b, msf);
         tmp = k;
         tmp = #SHL(tmp, one);
         j = #LEA(j + tmp);
         () = #unspill(bound);
+        bound = #protect(bound, msf);
       }
+      msf = #update_msf(!b, msf);
       k = #SHR(k, one);
     }
+    msf = #update_msf(!b, msf);
     () = #unspill(p);
+    p = #protect(p, msf);
     p = #SHL(p, one);
   }
+  msf = #update_msf(!b, msf);
+
+  return msf;
 }
 
 inline
@@ -723,8 +756,7 @@ fn stash_build_path(
   #declassify bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
   bucket_assignments = #protect(bucket_assignments, msf);
 
-  _odd_even_msort(blocks, bucket_assignments, 0, overflow_size);
-  msf = #init_msf();
+  msf = _odd_even_msort(blocks, bucket_assignments, 0, overflow_size, msf);
 
   return msf;
 }

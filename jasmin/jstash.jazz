@@ -125,9 +125,12 @@ fn odd_even_msort_jazz(
   reg u8 direction
 )
 {
+  #msf reg u64 msf;
+  msf = #init_msf();
+
   blocks = blocks;
   block_level_assignments = block_level_assignments;
-  _odd_even_msort(blocks, block_level_assignments, lb, ub);
+  _odd_even_msort(blocks, block_level_assignments, lb, ub, msf);
 }
 
 export
