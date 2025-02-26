@@ -311,7 +311,7 @@ fn _oram_access_read(
 
   #declassify path = [oram + 8 * PATH_ADDR];
   path = #protect(path, msf);
-  msf = tree_path_update(path, x, msf);
+  tree_path_update(path, x);
 
   new_position *= 2;
   target_block, msf = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
@@ -379,7 +379,7 @@ fn _oram_access_write(
 
   #declassify path = [oram + 8 * PATH_ADDR];
   path = #protect(path, msf);
-  msf = tree_path_update(path, x, msf);
+  tree_path_update(path, x);
 
   new_position *= 2;
   target_block, msf = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
@@ -448,7 +448,7 @@ fn _oram_access_write_partial(
 
   #declassify path = [oram + 8 * PATH_ADDR];
   path = #protect(path, msf);
-  msf = tree_path_update(path, x, msf);
+  tree_path_update(path, x);
 
   new_position *= 2;
   target_block, msf = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);

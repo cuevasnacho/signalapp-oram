@@ -3,9 +3,7 @@ require "tree_path.jinc"
 export
 fn tree_path_update_jazz(reg u64 tp leaf)
 {
-  #msf reg u64 msf;
-  msf = #init_msf();
-  tree_path_update(tp, leaf, msf);
+  tree_path_update(tp, leaf);
 }
 
 export
@@ -15,17 +13,6 @@ fn level_jazz(
 {
   reg u64 r;
   r = _level(n);
-  return r;
-}
-
-export
-fn node_val_jazz(
-  reg u64 level offset
-) -> reg u64
-{
-  reg u64 r;
-  level = level; offset = offset;
-  r = node_val(level, offset);
   return r;
 }
 
