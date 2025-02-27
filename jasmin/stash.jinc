@@ -338,17 +338,14 @@ fn _i_stash_add_block(
 }
 
 inline
-fn _stash_assign_block_to_bucket(
+fn _stash_assign_block_to_bucket_path(
   #spill_to_mmx reg u64 stash path,
-  reg u8 t, // is_path_block
-  reg u64 index,
+  inline int index,
   #msf reg u64 msf
 ) -> #msf reg u64
 {
   // spill_to_mmx variables
-  #spill_to_mmx reg u64 assignment_index bucket_assignments;
-  // standard variables
-  reg u64 max_level lvl;
+  #spill_to_mmx reg u64 bucket_assignments;
   // pointer variables
   reg u64 path_blocks bucket_occupancy;
   // temporary variables
@@ -358,17 +355,102 @@ fn _stash_assign_block_to_bucket(
   // boolean variables
   reg u8 c1 c2 c3;
   reg bool b cond;
+  inline int max_level lvl offset;
   
   // the block cannot be assigned to this level or higher
-  r1 = index;
-  tmp = BLOCKS_PER_BUCKET;
-  r1 = r1 / tmp;
-  r1 = #LEA(r1 + 1);
-  r2 = (64u)PATH_LENGTH;
-  max_level = _ternary(t, r1, r2);
+  max_level = (index / BLOCKS_PER_BUCKET) + 1;
 
-  r2 = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH + index);
-  assignment_index = _ternary(t, index, r2);
+  #declassify path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
+  path_blocks = #protect(path_blocks, msf);
+  offset = index * 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
+  bid = (64u)[path_blocks + offset];
+  bid = #protect(bid, msf);
+  () = #spill(bid);
+  bpos = (64u)[path_blocks + offset + 8];
+  bpos = #protect(bpos, msf);
+  () = #spill(bpos);
+
+  #declassify bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
+  bucket_occupancy = #protect(bucket_occupancy, msf);
+  #declassify bucket_assignments = (64u)[stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  bucket_assignments = #protect(bucket_assignments, msf);
+  () = #spill(path, stash, bucket_assignments);
+
+  c1 = #set0_8(); // is_assigned
+  for lvl = 0 to max_level {
+    r2 = (64u)[bucket_occupancy + 8 * lvl];
+    r2 = #protect(r2, msf);
+    () = #unspill(path);
+    bucket_id = (64u)[path + 8 + 8 * lvl];
+    bucket_id = #protect(bucket_id, msf);
+
+    c1 = !c1;
+    // is_valid
+    tree_bound = tree_path_lower_bound(bucket_id);
+    () = #unspill(bpos);
+    b = tree_bound <= bpos;
+    c2 = #SETcc(b);
+    c2 &= c1;
+    tree_bound = tree_path_upper_bound(bucket_id);
+    () = #unspill(bpos);
+    b = tree_bound >= bpos;
+    c3 = #SETcc(b);
+    c2 &= c3;
+    // bucket_has_room
+    b = r2 < BLOCKS_PER_BUCKET;
+    c3 = #SETcc(b);
+    c2 &= c3;
+    // not is_empty
+    () = #unspill(bid);
+    b = bid != EMPTY_BLOCK_ID;
+    c3 = #SETcc(b);
+    c2 &= c3;
+    // is_assigned = cond | is_assigned;
+    c1 = !c1;
+    c1 |= c2;
+    b = c2 != 0;
+    
+    // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
+    // for this position.
+    // increment this, it will only get saved if `b` is true.
+    r1 = #LEA(r2 + 1);
+    r1 = #CMOVcc(b, r1, r2);
+    () = #unspill(bucket_assignments);
+    (u64)[bucket_occupancy + 8 * lvl] = r1;
+    r1 = (64u)[bucket_assignments + 8 * index];
+    r1 = #protect(r1, msf);
+    b = c2 != 0;
+    tmp = (64u)lvl;
+    r1 = #CMOVcc(b, tmp, r1);
+    (u64)[bucket_assignments + 8 * index] = r1;
+  }
+
+  return msf;
+}
+
+inline
+fn _stash_assign_block_to_bucket_overflow(
+  #spill_to_mmx reg u64 stash path,
+  reg u64 index,
+  #msf reg u64 msf
+) -> #msf reg u64
+{
+  // spill_to_mmx variables
+  #spill_to_mmx reg u64 assignment_index bucket_assignments;
+  // pointer variables
+  reg u64 path_blocks bucket_occupancy;
+  // temporary variables
+  reg u64 r1 r2 bucket_id tree_bound tmp;
+  // spill_to_mmx
+  #spill_to_mmx reg u64 bid bpos;
+  // boolean variables
+  reg u8 c1 c2 c3;
+  reg bool b cond;
+  inline int lvl max_level;
+  
+  // the block cannot be assigned to this level or higher
+  max_level = (64u)PATH_LENGTH;
+  assignment_index = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH + index);
 
   #declassify path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
   path_blocks = #protect(path_blocks, msf);
@@ -388,9 +470,7 @@ fn _stash_assign_block_to_bucket(
   () = #spill(path, stash, assignment_index, bucket_assignments);
 
   c1 = #set0_8(); // is_assigned
-  lvl = 0;
-  while { cond = lvl < max_level; } (cond) {
-    msf = #update_msf(cond, msf);
+  for lvl = 0 to max_level {
     r2 = (64u)[bucket_occupancy + 8 * lvl];
     r2 = #protect(r2, msf);
     () = #unspill(path);
@@ -433,12 +513,10 @@ fn _stash_assign_block_to_bucket(
     r1 = (64u)[bucket_assignments + 8 * assignment_index];
     r1 = #protect(r1, msf);
     b = c2 != 0;
-    r1 = #CMOVcc(b, lvl, r1);
+    tmp = lvl;
+    r1 = #CMOVcc(b, tmp, r1);
     (u64)[bucket_assignments + 8 * assignment_index] = r1;
-    
-    lvl = #LEA(lvl + 1);
   }
-  msf = #update_msf(!cond, msf);
 
   return msf;
 }
@@ -538,7 +616,7 @@ fn _stash_assign_buckets(
   for lvl = 0 to PATH_LENGTH
   { for i = 0 to BLOCKS_PER_BUCKET
     {
-      msf = _stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_PATH, lvl * BLOCKS_PER_BUCKET + i, msf);
+      msf = _stash_assign_block_to_bucket_path(stash, path, lvl * BLOCKS_PER_BUCKET + i, msf);
     }
   }
 
@@ -549,7 +627,7 @@ fn _stash_assign_buckets(
   it = 0;
   while { cond = it < ub; } (cond) {
     msf = #update_msf(cond, msf);
-    msf = _stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_OVERFLOW, it, msf);
+    msf = _stash_assign_block_to_bucket_overflow(stash, path, it, msf);
     it = #LEA(it + 1);
   }
   msf = #update_msf(!cond, msf);

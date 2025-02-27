@@ -55,20 +55,6 @@ fn stash_add_block_jazz(
 }
 
 export
-fn stash_assign_block_to_bucket_jazz(
-  reg u64 stash path,
-  reg u8 t,
-  reg u64 index
-)
-{
-  #msf reg u64 msf;
-  msf = #init_msf();
-
-  t = t;
-  msf = _stash_assign_block_to_bucket(stash, path, t, index, msf);
-}
-
-export
 fn stash_place_empty_blocks_jazz(
   reg u64 stash
 )
