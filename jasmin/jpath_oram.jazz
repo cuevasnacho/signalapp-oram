@@ -27,19 +27,6 @@ fn oram_access_write_jazz(
 }
 
 export
-fn oram_access_write_partial_jazz(
-  reg u64 oram,
-  reg u64 block_id start len,
-  reg u64 data prev_data
-)
-{
-  oram = oram; block_id = block_id;
-  start = start; len = len; data = data;
-  prev_data = prev_data;
-  _oram_access_write_partial(oram, block_id, start, len, data, prev_data);
-}
-
-export
 fn oram_clear_jazz(
   reg u64 oram
 )

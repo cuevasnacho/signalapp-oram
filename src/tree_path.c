@@ -73,18 +73,6 @@ tree_path *tree_path_create(u64 leaf, u64 root)
     return t;
 }
 
-tree_path *tree_path_create_jazz(u64 leaf, u64 root)
-{
-    size_t length = level(root) + 1;
-    tree_path *t;
-    CHECK(t = malloc(sizeof(u64) * (length + 1)));
-    (*t)[0] = length;
-
-    tree_path_update_jazz(t, leaf);
-
-    return t;
-}
-
 void tree_path_update(tree_path *t, u64 leaf)
 {
     size_t root_level = TREE_PATH_LENGTH(*t) - 1;
@@ -147,6 +135,18 @@ size_t tree_path_num_nodes_jazz(size_t num_levels);
 u64 tree_path_lower_bound_jazz(u64 val);
 u64 tree_path_upper_bound_jazz(u64 val);
 size_t tree_path_level_jazz(u64 val);
+
+tree_path *tree_path_create_jazz(u64 leaf, u64 root)
+{
+    size_t length = level(root) + 1;
+    tree_path *t;
+    CHECK(t = malloc(sizeof(u64) * (length + 1)));
+    (*t)[0] = length;
+
+    tree_path_update_jazz(t, leaf);
+
+    return t;
+}
 
 int test_level()
 {   

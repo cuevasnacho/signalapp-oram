@@ -7,16 +7,22 @@ fn position_map_get_jazz(
   reg u64 position
 )
 {
+  position_map = position_map;
+  block_id = block_id;
+  position = position;
   position_map_get(position_map, block_id, position);
 }
 
 export
 fn position_map_read_then_set_jazz(
   reg u64 position_map,
-  reg u64 block_id position
-) -> reg u64
+  reg u64 block_id position,
+  reg u64 prev_position
+)
 {
-  reg u64 r;
-  r = position_map_read_then_set(position_map, block_id, position);
-  return r;
+  position_map = position_map;
+  block_id = block_id;
+  position = position;
+  prev_position = prev_position;
+  position_map_read_then_set(position_map, block_id, position, prev_position);
 }

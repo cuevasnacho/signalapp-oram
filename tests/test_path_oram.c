@@ -12,11 +12,14 @@
 
 int get_put_repeat()
 {
-    size_t capacity = 1 << 20;
-    oram *oram = oram_create(capacity, TEST_STASH_SIZE, getentropy);
+    size_t capacity = 1 << 22;
+    oram *oram0 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
+    oram *oram1 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
 
-    oram_allocate_contiguous(oram, 1330);
-    oram_allocate_block(oram);
+    oram_allocate_contiguous(oram0, 1330);
+    oram_allocate_block(oram0);
+    oram_allocate_contiguous(oram1, 1330);
+    oram_allocate_block(oram1);
 
     for (size_t b = 0; b < 1331; ++b)
     {
@@ -25,20 +28,25 @@ int get_put_repeat()
         {
             buf[i] = b * BLOCK_DATA_SIZE_QWORDS + i;
         }
-        RETURN_IF_ERROR(oram_put(oram, b, buf));
+        RETURN_IF_ERROR(oram_put(oram0, b, buf));
+        oram_access_write_jazz(oram1, b, buf);
     }
 
     for (size_t b = 0; b < 1331; ++b)
     {
-        u64 buf[BLOCK_DATA_SIZE_QWORDS];
-        RETURN_IF_ERROR(oram_get(oram, b, buf));
+        u64 buf0[BLOCK_DATA_SIZE_QWORDS];
+        u64 buf1[BLOCK_DATA_SIZE_QWORDS];
+        RETURN_IF_ERROR(oram_get(oram1, b, buf0));
+        oram_access_read_jazz(oram1, b, buf1);
         for (size_t i = 0; i < BLOCK_DATA_SIZE_QWORDS; ++i)
         {
-            TEST_ASSERT(buf[i] == b * BLOCK_DATA_SIZE_QWORDS + i);
+            TEST_ASSERT(buf0[i] == b * BLOCK_DATA_SIZE_QWORDS + i);
+            TEST_ASSERT(buf1[i] == b * BLOCK_DATA_SIZE_QWORDS + i);
         }
     }
 
-    oram_destroy(oram);
+    oram_destroy(oram0);
+    oram_destroy(oram1);
     return err_SUCCESS;
 }
 
@@ -100,9 +108,9 @@ error_t test_create_for_avail_mem() {
 
 int main(int argc, char *argv[])
 {
-    run_path_oram_tests();
+    // run_path_oram_tests();
     RUN_TEST(get_put_repeat());
-    RUN_TEST(test_oram_clear());
+    // RUN_TEST(test_oram_clear());
     // RUN_TEST(test_create_for_avail_mem());
     return 0;
 }

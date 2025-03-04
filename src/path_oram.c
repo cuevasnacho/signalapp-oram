@@ -387,7 +387,6 @@ const oram_statistics* oram_report_statistics(oram* oram) {
 // jasmin functions
 void oram_access_read_jazz(oram *oram, u64 block_id, u64 *out_data);
 void oram_access_write_jazz(oram *oram, u64 block_id, u64 *in_data);
-void oram_access_write_partial_jazz(oram *oram, u64 block_id, size_t start, size_t len, u64 data[len], u64 prev_data[static BLOCK_DATA_SIZE_QWORDS]);
 void oram_clear_jazz(oram *oram);
 
 void print_oram(const oram *oram)

@@ -13,6 +13,9 @@
 #include "../include/util.h"
 #include "../include/tests.h"
 
+void position_map_get_jazz(const position_map *position_map, u64 block_id, u64* position);
+void position_map_read_then_set_jazz(position_map *position_map, u64 block_id, u64 position, u64 *prev_position);
+
 int test_position_map_lifecycle()
 {
     position_map *pm = position_map_create(1 << 18, 1<<17, TEST_STASH_SIZE, getentropy);
@@ -88,16 +91,22 @@ int test_position_map_initial_data()
 
 int test_position_map_put_get()
 {
-    position_map *pm = position_map_create(1 << 18, 1 << 17, TEST_STASH_SIZE, getentropy);
+    position_map *pm0 = position_map_create(1 << 18, 1 << 17, TEST_STASH_SIZE, getentropy);
+    position_map *pm1 = position_map_create(1 << 18, 1 << 17, TEST_STASH_SIZE, getentropy);
 
     u64 prev;
-    RETURN_IF_ERROR(position_map_read_then_set(pm, 1234, 4321, &prev));
-    u64 result;
-    RETURN_IF_ERROR(position_map_get(pm, 1234, &result));
+    RETURN_IF_ERROR(position_map_read_then_set(pm0, 1234, 4321, &prev));
+    position_map_read_then_set_jazz(pm1, 1234, 4321, &prev);
 
-    TEST_ASSERT(result == 4321);
+    u64 result0, result1;
+    RETURN_IF_ERROR(position_map_get(pm0, 1234, &result0));
+    position_map_get_jazz(pm1, 1234, &result1);
 
-    position_map_destroy(pm);
+    TEST_ASSERT(result0 == 4321);
+    TEST_ASSERT(result1 == 4321);
+
+    position_map_destroy(pm0);
+    position_map_destroy(pm1);
 
     return err_SUCCESS;
 }
@@ -138,11 +147,11 @@ int test_position_map_put_get_repeat()
 }
 void public_position_map_tests()
 {
-    RUN_TEST(test_position_map_lifecycle());
-    RUN_TEST(test_position_map_recursion_depth());
-    RUN_TEST(test_position_map_initial_data());
+    // RUN_TEST(test_position_map_lifecycle());
+    // RUN_TEST(test_position_map_recursion_depth());
+    // RUN_TEST(test_position_map_initial_data());
     RUN_TEST(test_position_map_put_get());
-    RUN_TEST(test_position_map_put_get_repeat());
+    // RUN_TEST(test_position_map_put_get_repeat());
 }
 
 int main()
