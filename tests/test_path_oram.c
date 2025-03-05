@@ -36,7 +36,7 @@ int get_put_repeat()
     {
         u64 buf0[BLOCK_DATA_SIZE_QWORDS];
         u64 buf1[BLOCK_DATA_SIZE_QWORDS];
-        RETURN_IF_ERROR(oram_get(oram1, b, buf0));
+        RETURN_IF_ERROR(oram_get(oram0, b, buf0));
         oram_access_read_jazz(oram1, b, buf1);
         for (size_t i = 0; i < BLOCK_DATA_SIZE_QWORDS; ++i)
         {
