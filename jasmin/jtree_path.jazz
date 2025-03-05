@@ -17,17 +17,6 @@ fn level_jazz(
 }
 
 export
-fn node_val_jazz(
-  reg u64 level offset
-) -> reg u64
-{
-  reg u64 r;
-  level = level; offset = offset;
-  r = node_val(level, offset);
-  return r;
-}
-
-export
 fn tree_path_num_nodes_jazz(
   reg u64 num_levels
 ) -> reg u64

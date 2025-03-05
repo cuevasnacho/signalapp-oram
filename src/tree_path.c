@@ -130,7 +130,6 @@ size_t tree_path_level(u64 val) {
 
 // jasmin functions
 size_t level_jazz(u64 n);
-u64 node_val_jazz(size_t level, size_t offset);
 size_t tree_path_num_nodes_jazz(size_t num_levels);
 u64 tree_path_lower_bound_jazz(u64 val);
 u64 tree_path_upper_bound_jazz(u64 val);
@@ -216,14 +215,10 @@ int test_coords_from_val()
 int test_val_from_coords()
 {
     u64 val = node_val((tree_coords){.level = 0, .offset = 0});
-    u64 val_jazz = node_val_jazz(0, 0);
     TEST_ASSERT(val == 0);
-    TEST_ASSERT(val_jazz == 0);
 
     val = node_val((tree_coords){.level = 2, .offset = 1});
-    val_jazz = node_val_jazz(2, 1);
     TEST_ASSERT(val == 11);
-    TEST_ASSERT(val_jazz == 11);
     return 0;
 }
 
@@ -233,9 +228,7 @@ int test_val_coords_roundtrip()
     {
         tree_coords coords = coords_for_val(i);
         u64 val = node_val(coords);
-        u64 val_jazz = node_val_jazz(coords.level, coords.offset);
         TEST_ASSERT(val == i);
-        TEST_ASSERT(val_jazz == i);
     }
     return err_SUCCESS;
 }
