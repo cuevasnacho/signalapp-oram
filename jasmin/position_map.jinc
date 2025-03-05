@@ -70,10 +70,8 @@ fn position_map_get(
 )
 {
   reg u64 data;
-  if (POSITION_MAP_SIZE < SCAN_THRESHOLD) {
-    data = [position_map + 8 * 3];  // *data
-    _scan_position_map_get(data, block_id, position);
-  }
+  #declassify data = [position_map + 8 * 3];  // *data
+  _scan_position_map_get(data, block_id, position);
 }
 
 inline
