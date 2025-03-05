@@ -24,6 +24,9 @@ position_map: build/test_position_map
 oram: build/test_path_oram
 	./build/test_path_oram
 
+speed: build/test_speed
+	./build/test_speed
+
 
 # build tests
 build/test_tree_path: src/tree_path.c build/jtree_path.s tests/test_tree_path.c
@@ -40,6 +43,9 @@ build/test_position_map: src/bucket.c src/tree_path.c src/stash.c src/path_oram.
 
 build/test_path_oram: src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
 	$(CC) $(CTEST) $(CFLAGS) -o build/test_path_oram src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
+
+build/test_speed: src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_speed.c syscall/jasmin_syscall.o
+	$(CC) $(CFLAGS) -o build/test_speed src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_speed.c syscall/jasmin_syscall.o
 
 syscall/jasmin_syscall.o:
 	$(MAKE) -C syscall
