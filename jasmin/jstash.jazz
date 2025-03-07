@@ -10,11 +10,13 @@ fn stash_add_path_bucket_jazz(
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_p;
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_s;
   inline int i;
+  #msf reg u64 msf;
+  msf = #init_msf();
 
   target_p = target_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { target_p[u64 i] = (u64)[target + 8 * i]; }
-  target_p = _i_stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target_p);
+  target_p, msf = _i_stash_add_path_bucket(stash, bucket_store, bucket_id, target_block_id, target_p, msf);
 
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { (u64)[target + 8 * i] = target_p[u64 i]; }
@@ -30,11 +32,13 @@ fn stash_scan_overflow_for_target_jazz(
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_p;
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_s;
   inline int i;
+  #msf reg u64 msf;
+  msf = #init_msf();
 
   target_p = target_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { target_p[u64 i] = (u64)[target + 8 * i]; }
-  target_p = _i_stash_scan_overflow_for_target(stash, target_block_id, target_p);
+  target_p, msf = _i_stash_scan_overflow_for_target(stash, target_block_id, target_p, msf);
 
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS
   { (u64)[target + 8 * i] = target_p[u64 i]; }
@@ -46,22 +50,6 @@ fn stash_add_block_jazz(
 )
 {
   stash_add_block(stash, new_block);
-}
-
-export
-fn stash_place_empty_blocks_jazz(
-  reg u64 stash
-)
-{
-  _stash_place_empty_blocks(stash);
-}
-
-export
-fn stash_assign_buckets_jazz(
-  reg u64 stash path
-)
-{
-  _stash_assign_buckets(stash, path);
 }
 
 export
@@ -99,23 +87,9 @@ fn odd_even_msort_jazz(
   reg u8 direction
 )
 {
+  #msf reg u64 msf;
+  msf = #init_msf();
   blocks = blocks;
   block_level_assignments = block_level_assignments;
-  _odd_even_msort(blocks, block_level_assignments, lb, ub);
-}
-
-export
-fn stash_build_path_jazz(
-  reg u64 stash path
-)
-{
-  stash_build_path(stash, path);
-}
-
-export
-fn stash_clear_jazz(
-  reg u64 stash
-)
-{
-  stash_clear(stash);
+  msf = _odd_even_msort(blocks, block_level_assignments, lb, ub, msf);
 }

@@ -7,10 +7,13 @@ fn position_map_get_jazz(
   reg u64 position
 )
 {
+  #msf reg u64 msf;
+  msf = #init_msf();
+
   position_map = position_map;
   block_id = block_id;
   position = position;
-  position_map_get(position_map, block_id, position);
+  msf = position_map_get(position_map, block_id, position, msf);
 }
 
 export
@@ -20,9 +23,12 @@ fn position_map_read_then_set_jazz(
   reg u64 prev_position
 )
 {
+  #msf reg u64 msf;
+  msf = #init_msf();
+
   position_map = position_map;
   block_id = block_id;
   position = position;
   prev_position = prev_position;
-  position_map_read_then_set(position_map, block_id, position, prev_position);
+  msf = position_map_read_then_set(position_map, block_id, position, prev_position, msf);
 }

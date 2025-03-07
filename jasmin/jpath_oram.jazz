@@ -2,9 +2,9 @@ require "path_oram.jinc"
 
 export
 fn oram_access_read_jazz(
-  reg u64 oram,
-  reg u64 block_id,
-  reg u64 out_data
+  #transient reg u64 oram,
+  #secret reg u64 block_id,
+  #transient reg u64 out_data
 )
 {
   oram = oram;
@@ -31,5 +31,7 @@ fn oram_clear_jazz(
   reg u64 oram
 )
 {
-  oram_clear(oram);
+  #msf reg u64 msf;
+  msf = #init_msf();
+  msf = oram_clear(oram, msf);
 }

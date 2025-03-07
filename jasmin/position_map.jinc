@@ -4,12 +4,14 @@ inline
 fn position_map_get(
   reg u64 position_map,
   reg u64 block_id,
-  reg u64 position
-)
+  reg u64 position,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 data;
   data = #LEA(position_map + 8 * 2);  // *data
-  oram_position_map_get(data, block_id, position);
+  msf = oram_position_map_get(data, block_id, position, msf);
+  return msf;
 }
 
 inline
@@ -17,23 +19,26 @@ fn position_map_read_then_set(
   reg u64 position_map,
   reg u64 block_id,
   reg u64 position,
-  reg u64 prev_position
-)
+  reg u64 prev_position,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 x data;
   data = #LEA(position_map + 8 * 2);  // *data
-  oram_position_map_set(data, block_id, position, prev_position);
+  msf = oram_position_map_set(data, block_id, position, prev_position, msf);
+  return msf;
 }
 
 inline
 fn _i_position_map_read_then_set(
-  reg u64 position_map,
-  reg u64 block_id,
-  reg u64 position
-) -> reg u64
+  #public reg u64 position_map,
+  #secret reg u64 block_id,
+  #secret reg u64 position,
+  #msf reg u64 msf
+) -> #secret reg u64, #msf reg u64
 {
   reg u64 x data prev_position;
-  data = #LEA(position_map + 8 * 2);  // *data
-  prev_position = _i_oram_position_map_set(data, block_id, position);
-  return prev_position;
+  #declassify data = #LEA(position_map + 8 * 2);  // *data
+  prev_position, msf = _i_oram_position_map_set(data, block_id, position, msf);
+  return prev_position, msf;
 }
