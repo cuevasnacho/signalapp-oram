@@ -63,15 +63,29 @@ fn _scan_position_map_set(
 }
 
 inline
+fn _position_map_data(
+  reg u64 position_map,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  reg u64 p;
+  #declassify p = (64u)[position_map + 8 * 3];  // *data
+  p = #protect(p, msf);
+  return p, msf;
+}
+
+inline
 fn position_map_get(
   reg u64 position_map,
   reg u64 block_id,
-  reg u64 position
-)
+  reg u64 position,
+  #msf reg u64 msf
+) -> #msf reg u64
 {
   reg u64 data;
-  #declassify data = [position_map + 8 * 3];  // *data
+  data, msf = _position_map_data(position_map, msf);
   _scan_position_map_get(data, block_id, position);
+  return msf;
 }
 
 inline
@@ -83,8 +97,7 @@ fn position_map_read_then_set(
 ) -> #secret reg u64, #msf reg u64
 {
   reg u64 x data;
-  #declassify data = [position_map + 8 * 3];  // *data
-  data = #protect(data, msf);
+  data, msf = _position_map_data(position_map, msf);
   x, msf = _scan_position_map_set(data, block_id, position, msf);
   return x, msf;
 }
