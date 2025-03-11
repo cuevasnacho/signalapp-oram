@@ -19,42 +19,30 @@ fn __level(
 inline
 fn __coords_for_val(
   reg u64 val
-) -> reg u64, reg u64
+) -> reg u64
 {
   reg u64 level lmod lres;
   level = __level(val);
+  level = #LEA(level + 1);
   lmod = 1;
   lmod = #SHL(lmod, level);
-  lmod = #SHL(lmod, 1);
   lres = lmod;
   lres >>= 1;
   lres = lres - 1;
   val = val;
   val -= lres;
-  val = val / lmod;
-  return level, val;
-}
-
-inline
-fn __parent(
-  reg u64 level offset
-) -> reg u64, reg u64
-{
-  reg u64 p_level p_offset;
-  p_level = level + 1;
-  p_offset = offset >> 1;
-  return p_level, p_offset;
+  val = #SHR(val, level);
+  return val;
 }
 
 inline
 fn __node_val(
-  reg u64 level offset
+  inline int level,
+  reg u64 offset
 ) -> reg u64
 {
   reg u64 lmod lres;
-  lmod = 1;
-  lmod = #SHL(lmod, level);
-  lmod <<= 1;
+  lmod = 1 << (level + 1);
   lres = lmod;
   lres >>= 1;
   lres = lres - 1;
@@ -69,15 +57,19 @@ fn __tree_path_update(
   reg u64 leaf
 )
 {
-  reg u64 root_level root level offset;
+  reg u64 offset;
+  reg bool cond;
+  inline int root root_level level;
+
   root_level = INNER_PATH_LENGTH - 1;
   root = ((64u)1 << root_level) - 1;
 
-  level, offset = __coords_for_val(leaf);
+  offset = __coords_for_val(leaf);
   t = #LEA(t + 8);
   (u64)[t] = leaf;
-  while (level < root_level) {
-    level, offset = __parent(level, offset);
+  for level = 1 to root_level + 1
+  {
+    offset = offset >> 1;
     (u64)[t + 8 * level] = __node_val(level, offset);
   }
 }
@@ -129,17 +121,16 @@ fn __bucket_store_read_bucket_blocks(
   reg u64 bucket_data
 )
 {
-  reg u64 offset encrypted_bucket data;
-  reg u8 t8;
+  reg u64 offset encrypted_bucket data r64;
   inline int i;
 
   data = (64u)[bucket_store + 16];
   offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
   encrypted_bucket = data + offset;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET * 8
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET
   {
-    t8 = (u8)[encrypted_bucket + i];
-    (u8)[bucket_data + i] = t8;
+    r64 = (64u)[encrypted_bucket + 8 * i];
+    (u64)[bucket_data + 8 * i] = r64;
   }
 }
 
@@ -149,17 +140,16 @@ fn __bucket_store_write_bucket_blocks(
   reg u64 bucket_data
 )
 {
-  reg u64 offset encrypted_bucket data;
-  reg u8 t8;
+  reg u64 offset encrypted_bucket data r64;
   inline int i;
 
   data = (64u)[bucket_store + 16];
   offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
   encrypted_bucket = data + offset;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET * 8
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET
   {
-    t8 = (u8)[bucket_data + i];
-    (u8)[encrypted_bucket + i] = t8;
+    r64 = (64u)[bucket_data + 8 * i];
+    (u64)[encrypted_bucket + 8 * i] = r64;
   }
 }
 
@@ -226,18 +216,24 @@ fn __stash_overflow_ub(
 ) -> reg u64
 {
   reg u64 i j overflow_blocks bid offset;
+  reg u64 zero;
+  reg bool b;
 
   i = (64u)[stash + 8 * OVERFLOW_CAPACITY_ADDR];
   overflow_blocks = (64u)[stash + 8 * OVERFLOW_BLOCKS_ADDR];
   offset = i;
   offset *= 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
   overflow_blocks += offset;
+  zero = #set0();
   while (i > 0) {
-    overflow_blocks -= 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
+    overflow_blocks -= 8 * DECRYPTED_BLOCK_SIZE_QWORDS; // (i - 1)
     bid = (64u)[overflow_blocks];
-    if bid != EMPTY_BLOCK_ID { j = i; i = 1; }
-    else { j = 0; }
+    b = bid != EMPTY_BLOCK_ID;
+    j = zero;
+    j = #CMOVcc(b, i, j);
     i -= 1;
+    b = bid != EMPTY_BLOCK_ID;
+    i = #CMOVcc(b, zero, i);
   }
   return j;
 }
@@ -391,14 +387,11 @@ fn __i_stash_add_block(
 }
 
 inline
-fn __stash_assign_block_to_bucket(
+fn __stash_assign_block_to_bucket_path(
   reg u64 stash path,
-  reg u8 t, // is_path_block
-  reg u64 index
+  inline int index
 )
 {
-  // standard variables
-  reg u64 max_level assignment_index lvl;
   // pointer variables
   reg u64 path_blocks block bucket_occupancy bucket_assignments;
   // temporary variables
@@ -406,17 +399,85 @@ fn __stash_assign_block_to_bucket(
   // boolean variables
   reg u8 c1 c2 c3;
   reg bool b;
+  inline int max_level lvl offset;
   
   // the block cannot be assigned to this level or higher
-  r1 = index;
-  tmp = BLOCKS_PER_BUCKET;
-  r1 = r1 / tmp;
-  r1 = #LEA(r1 + 1);
-  r2 = (64u)INNER_PATH_LENGTH;
-  max_level = _ternary(t, r1, r2);
+  max_level = (index / BLOCKS_PER_BUCKET) + 1;
 
-  r2 = #LEA(BLOCKS_PER_BUCKET * INNER_PATH_LENGTH + index);
-  assignment_index = _ternary(t, index, r2);
+  path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
+  offset = index * 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
+  bid = (64u)[path_blocks + offset];
+  bpos = (64u)[path_blocks + offset + 8];
+
+  bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
+  bucket_assignments = (64u)[stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  () = #spill(path, stash, bucket_assignments);
+
+  c1 = #set0_8(); // is_assigned
+  for lvl = 0 to max_level
+  {
+    r2 = (64u)[bucket_occupancy + 8 * lvl];
+    () = #unspill(path);
+    bucket_id = (64u)[path + 8 + 8 * lvl];
+
+    c1 = !c1;
+    // is_valid
+    tree_bound = __tree_path_lower_bound(bucket_id);
+    b = tree_bound <= bpos;
+    c2 = #SETcc(b);
+    c2 &= c1;
+    tree_bound = __tree_path_upper_bound(bucket_id);
+    b = tree_bound >= bpos;
+    c3 = #SETcc(b);
+    c2 &= c3;
+    // bucket_has_room
+    b = r2 < BLOCKS_PER_BUCKET;
+    c3 = #SETcc(b);
+    c2 &= c3;
+    // not is_empty
+    b = bid != EMPTY_BLOCK_ID;
+    c3 = #SETcc(b);
+    c2 &= c3;
+    // is_assigned = cond | is_assigned;
+    c1 = !c1;
+    c1 |= c2;
+    b = c2 != 0;
+    
+    // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
+    // for this position.
+    // increment this, it will only get saved if `b` is true.
+    r1 = #LEA(r2 + 1);
+    r1 = #CMOVcc(b, r1, r2);
+    () = #unspill(bucket_assignments);
+    (u64)[bucket_occupancy + 8 * lvl] = r1;
+    r1 = (64u)[bucket_assignments + 8 * index];
+    // b = c2 != 0;
+    tmp = (64u)lvl;
+    r1 = #CMOVcc(b, tmp, r1);
+    (u64)[bucket_assignments + 8 * index] = r1;
+  }
+}
+
+inline
+fn __stash_assign_block_to_bucket_overflow(
+  reg u64 stash path,
+  reg u64 index
+)
+{
+  // standard variables
+  reg u64 assignment_index;
+  // pointer variables
+  reg u64 path_blocks block bucket_occupancy bucket_assignments;
+  // temporary variables
+  reg u64 r1 r2 bucket_id bid bpos tree_bound tmp;
+  // boolean variables
+  reg u8 c1 c2 c3;
+  reg bool b;
+  inline int max_level lvl;
+  
+  // the block cannot be assigned to this level or higher
+  max_level = (64u)INNER_PATH_LENGTH;
+  assignment_index = #LEA(BLOCKS_PER_BUCKET * INNER_PATH_LENGTH + index);
 
   path_blocks = (64u)[stash + 8 * PATH_BLOCKS_ADDR];
   tmp = assignment_index;
@@ -429,8 +490,7 @@ fn __stash_assign_block_to_bucket(
   () = #spill(path, stash, assignment_index, bucket_assignments);
 
   c1 = #set0_8(); // is_assigned
-  lvl = 0;
-  while (lvl < max_level)
+  for lvl = 0 to max_level
   {
     r2 = (64u)[bucket_occupancy + 8 * lvl];
     () = #unspill(path);
@@ -467,10 +527,10 @@ fn __stash_assign_block_to_bucket(
     () = #unspill(assignment_index, bucket_assignments);
     (u64)[bucket_occupancy + 8 * lvl] = r1;
     r1 = (64u)[bucket_assignments + 8 * assignment_index];
-    r1 = #CMOVcc(b, lvl, r1);
+    // b = c2 != 0;
+    tmp = (64u)lvl;
+    r1 = #CMOVcc(b, tmp, r1);
     (u64)[bucket_assignments + 8 * assignment_index] = r1;
-    
-    lvl = #LEA(lvl + 1);
   }
 }
 
@@ -558,7 +618,7 @@ fn __stash_assign_buckets(
   for lvl = 0 to INNER_PATH_LENGTH
   { for i = 0 to BLOCKS_PER_BUCKET
     {
-      __stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_PATH, lvl * BLOCKS_PER_BUCKET + i);
+      __stash_assign_block_to_bucket_path(stash, path, lvl * BLOCKS_PER_BUCKET + i);
     }
   }
 
@@ -567,7 +627,7 @@ fn __stash_assign_buckets(
   it = 0;
   while (it < ub)
   {
-    __stash_assign_block_to_bucket(stash, path, BLOCK_TYPE_OVERFLOW, it);
+    __stash_assign_block_to_bucket_overflow(stash, path, it);
     it = #LEA(it + 1);
   }
 
