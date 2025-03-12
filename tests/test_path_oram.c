@@ -12,7 +12,7 @@
 
 int get_put_repeat()
 {
-    size_t capacity = 1 << 24;
+    size_t capacity = 1 << 27;
     oram *oram0 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
     oram *oram1 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
 

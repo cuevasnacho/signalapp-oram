@@ -14,7 +14,7 @@
 
 // In SGX, the MEE encrypts for us so we do not need AE overhead. Ciphertext size = plaintext size.
 #define DECRYPTED_BUCKET_SIZE ENCRYPTED_BUCKET_SIZE
-#define BLOCKS_PER_BUCKET 3
+#define BLOCKS_PER_BUCKET 5
 #define DECRYPTED_BLOCK_SIZE (DECRYPTED_BUCKET_SIZE / BLOCKS_PER_BUCKET)
 #define DECRYPTED_BLOCK_SIZE_QWORDS (DECRYPTED_BLOCK_SIZE / 8)
 

@@ -187,13 +187,14 @@ fn _oram_access_read(
   x = _i_position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
 
-  () = #unspill(oram, block_id, new_position, target_block, out_data);
+  () = #unspill(oram, block_id, new_position, target_block);
   path = [oram + 8 * PATH_ADDR];
   tree_path_update(path, x);
 
   new_position *= 2;
   target_block = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position);
   () = #spill(path);
+  () = #unspill(out_data);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
   stash = [oram + 8 * STASH_ADDR];
@@ -242,13 +243,14 @@ fn _oram_access_write(
   x = _i_position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
 
-  () = #unspill(oram, block_id, new_position, target_block, in_data);
+  () = #unspill(oram, block_id, new_position, target_block);
   path = [oram + 8 * PATH_ADDR];
   tree_path_update(path, x);
 
   new_position *= 2;
   target_block = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position);
   () = #spill(path);
+  () = #unspill(in_data);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_write_accessor_full(target_block[2:BLOCK_DATA_SIZE_QWORDS], in_data);
 
   stash = [oram + 8 * STASH_ADDR];
