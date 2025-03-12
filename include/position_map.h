@@ -7,7 +7,7 @@
 #include "util.h"
 #include "path_oram.h"
 #define POSITION_MAP_NOT_PRESENT UINT64_MAX
-#define SCAN_THRESHOLD (1 << 14)
+#define SCAN_THRESHOLD (1 << 8)
 
 typedef u64 position_map[6];
 

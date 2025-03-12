@@ -1,7 +1,7 @@
 param int EMPTY_BLOCK_ID = -1;
 param int BLOCK_TYPE_OVERFLOW = 0;
 param int BLOCK_TYPE_PATH = 1;
-param int SCAN_THRESHOLD = 1<<14; // position_map type
+param int SCAN_THRESHOLD = 1<<8; // position_map type
 param int ARR_SIZE = 32;  // TODO: remove from bitonic_sort
 
 // stash indices
