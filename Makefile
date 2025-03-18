@@ -24,6 +24,9 @@ position_map: build/test_position_map
 oram: build/test_path_oram
 	./build/test_path_oram
 
+ct_div: build/test_ct_div
+	./build/test_ct_div
+
 speed: build/test_speed
 	./build/test_speed
 
@@ -43,6 +46,9 @@ build/test_position_map: src/bucket.c src/tree_path.c src/stash.c src/path_oram.
 
 build/test_path_oram: src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
 	$(CC) $(CTEST) $(CFLAGS) -o build/test_path_oram src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_path_oram.c syscall/jasmin_syscall.o
+
+build/test_ct_div: build/jutil.s src/uint128div.c tests/test_uint128div.c
+	$(CC) $(CFLAGS) -o build/test_ct_div src/uint128div.c build/jutil.s tests/test_uint128div.c
 
 build/test_speed: src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_speed.c syscall/jasmin_syscall.o
 	$(CC) $(CFLAGS) -o build/test_speed src/bucket.c src/tree_path.c src/stash.c src/path_oram.c src/position_map.c build/jtree_path.s build/jbucket.s build/jstash.s build/jposition_map.s build/jpath_oram.s tests/test_speed.c syscall/jasmin_syscall.o

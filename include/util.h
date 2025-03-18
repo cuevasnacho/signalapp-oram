@@ -11,6 +11,7 @@
 
 #include "int_types.h"
 #include "error.h"
+#include "uint128div.h"
 
 inline static size_t floor_log2(size_t n)
 {
@@ -110,6 +111,29 @@ static inline u64 first_pow2_leq(u64 n) {
 static inline u64 muluh64(u64 a, u64 b) {
     return ((__uint128_t)a*b) >> 64;
 
+}
+
+/**
+ * @brief Precomputes constants for constant-time division method in Granlund and Montgomery,
+ * "Division by Invariant Integers using Multiplication" (https://gmplib.org/~tege/divcnst-pldi94.pdf).
+ * 
+ * *This function is NOT constant time and should only be used for non-secret divisors, `d`.
+ * 
+ * @param d 
+ * @param m_prime 
+ * @param shift1 
+ * @param shift2 
+ */
+static inline void prep_ct_div(u64 d, u64* m_prime, size_t* shift1, size_t* shift2) {
+    size_t l = ceil_log2(d);
+    // division is non-constant time, but this is only done once during setup,
+    // not when operating on secret data
+    __uint128_t dividend = ((__uint128_t)1 << 64)*((1ul << l) - d);
+    uint64_t q;
+    q = div128by64(dividend, d);
+    *m_prime = 1 + q;
+    *shift1 = l < 1 ? l : 1;
+    *shift2 = (l-1) > 0 ? (l-1) : 0;
 }
 
 /**
