@@ -90,6 +90,7 @@ fn _ct_div(
 {
   reg u64 t1;
   t1 = _muluh64(m_prime, n);
+  n = n;
   n -= t1;
   n = #SHR(n, shift1);
   t1 += n;
@@ -107,6 +108,7 @@ fn _ct_mod(
   reg u64 q;
   q = _ct_div(n, d, m_prime, shift1, shift2);
   q *= d;
+  n = n;
   n -= q;
   return n;
 }

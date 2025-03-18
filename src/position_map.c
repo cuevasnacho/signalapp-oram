@@ -27,6 +27,12 @@ typedef struct
     oram *oram;
     u64 base_block_id;
     u64 *access_buf;
+
+    // constant-time mod precomputations
+    u64 entries_per_block;
+    u64 entries_per_block_ct_m_prime;
+    size_t entries_per_block_ct_shift1;
+    size_t entries_per_block_ct_shift2;
 } oram_position_map;
 */
 
@@ -48,26 +54,36 @@ struct position_map
     } impl;
 };
 */
-typedef u64 oram_position_map[4];
+typedef u64 oram_position_map[8];
 typedef u64 scan_position_map[2];
 
 // position_map
-#define POSITION_MAP_TYPE(o)            ((o)[0])
-#define POSITION_MAP_NUM_POSITIONS(o)   ((o)[1])
-#define POSITION_MAP_SIZE(o)            ((o)[2])
-#define POSITION_MAP_DATA(o)            ((o)[3])
-#define POSITION_MAP_BASE_BLOCK_ID(o)   ((o)[4])
-#define POSITION_MAP_ACCESS_BUF(o)      ((o)[5])
+#define POSITION_MAP_TYPE(o)                ((o)[0])
+#define POSITION_MAP_NUM_POSITIONS(o)       ((o)[1])
+#define POSITION_MAP_SIZE(o)                ((o)[2])
+#define POSITION_MAP_DATA(o)                ((o)[3])
+#define POSITION_MAP_BASE_BLOCK_ID(o)       ((o)[4])
+#define POSITION_MAP_ACCESS_BUF(o)          ((o)[5])
+
+#define POSITION_MAP_EPB(o)                 ((o)[6])
+#define POSITION_MAP_EPB_CT_M_P(o)          ((o)[7])
+#define POSITION_MAP_EPB_CT_SH1(o)          ((o)[8])
+#define POSITION_MAP_EPB_CT_SH2(o)          ((o)[9])
 
 // oram_position_map
-#define ORAM_POSITION_MAP_SIZE(o)            ((o)[0])
-#define ORAM_POSITION_MAP_ORAM(o)            ((o)[1])
-#define ORAM_POSITION_MAP_BASE_BLOCK_ID(o)   ((o)[2])
-#define ORAM_POSITION_MAP_ACCESS_BUF(o)      ((o)[3])
+#define ORAM_POSITION_MAP_SIZE(o)           ((o)[0])
+#define ORAM_POSITION_MAP_ORAM(o)           ((o)[1])
+#define ORAM_POSITION_MAP_BASE_BLOCK_ID(o)  ((o)[2])
+#define ORAM_POSITION_MAP_ACCESS_BUF(o)     ((o)[3])
+
+#define ORAM_POSITION_MAP_EPB(o)            ((o)[4])
+#define ORAM_POSITION_MAP_EPB_CT_M_P(o)     ((o)[5])
+#define ORAM_POSITION_MAP_EPB_CT_SH1(o)     ((o)[6])
+#define ORAM_POSITION_MAP_EPB_CT_SH2(o)     ((o)[7])
 
 // scan_position_map
-#define SCAN_POSITION_MAP_SIZE(o)            ((o)[0])
-#define SCAN_POSITION_MAP_DATA(o)            ((o)[1])
+#define SCAN_POSITION_MAP_SIZE(o)           ((o)[0])
+#define SCAN_POSITION_MAP_DATA(o)           ((o)[1])
 
 // oram implementation
 static oram_position_map *oram_position_map_create(size_t num_blocks, size_t num_positions, size_t overflow_stash_size, entropy_func getentropy)
@@ -92,10 +108,18 @@ static oram_position_map *oram_position_map_create(size_t num_blocks, size_t num
         oram_put(oram, base_block_id + i, buf);
     }
 
-    oram_position_map *result = calloc(6, sizeof(u64));
-    ORAM_POSITION_MAP_SIZE(*result) = num_blocks;
-    ORAM_POSITION_MAP_ORAM(*result) = oram;
+    size_t entries_per_block = block_size;
+
+    oram_position_map *result = calloc(8, sizeof(u64));
     ORAM_POSITION_MAP_BASE_BLOCK_ID(*result) = base_block_id;
+    ORAM_POSITION_MAP_ORAM(*result) = oram;
+    ORAM_POSITION_MAP_SIZE(*result) = num_blocks;
+    ORAM_POSITION_MAP_EPB(*result) = entries_per_block;
+    prep_ct_div(
+        entries_per_block,
+        &ORAM_POSITION_MAP_EPB_CT_M_P(*result),
+        &ORAM_POSITION_MAP_EPB_CT_SH1(*result),
+        &ORAM_POSITION_MAP_EPB_CT_SH2(*result));
     ORAM_POSITION_MAP_ACCESS_BUF(*result) = buf;
 
     return result;
@@ -110,7 +134,12 @@ static void oram_position_map_destroy(oram_position_map *oram_position_map)
 static u64 block_id_for_index(const oram_position_map *oram_position_map, u64 index)
 {
     size_t entries_per_block = oram_block_size(ORAM_POSITION_MAP_ORAM(*oram_position_map));
-    return ORAM_POSITION_MAP_BASE_BLOCK_ID(*oram_position_map) + (index / entries_per_block);
+    size_t offset = ct_div(index, 
+        entries_per_block, 
+        ORAM_POSITION_MAP_EPB_CT_M_P(*oram_position_map),
+        ORAM_POSITION_MAP_EPB_CT_SH1(*oram_position_map),
+        ORAM_POSITION_MAP_EPB_CT_SH2(*oram_position_map));
+    return ORAM_POSITION_MAP_BASE_BLOCK_ID(*oram_position_map) + offset;
 }
 
 static error_t oram_position_map_get(const oram_position_map *oram_position_map, u64 block_id, u64* position)
@@ -126,14 +155,14 @@ static error_t oram_position_map_get(const oram_position_map *oram_position_map,
 static error_t oram_position_map_set(oram_position_map *oram_position_map, u64 block_id, u64 position, u64 *prev_position)
 {
     CHECK(prev_position!= NULL);
-    size_t block_size = oram_block_size(ORAM_POSITION_MAP_ORAM(*oram_position_map));
-    u64 *buf = ORAM_POSITION_MAP_ACCESS_BUF(*oram_position_map);
-
-    size_t idx_in_block = block_id % block_size;
+    size_t idx_in_block = ct_mod(
+        block_id, 
+        ORAM_POSITION_MAP_EPB(*oram_position_map), 
+        ORAM_POSITION_MAP_EPB_CT_M_P(*oram_position_map), 
+        ORAM_POSITION_MAP_EPB_CT_SH1(*oram_position_map), 
+        ORAM_POSITION_MAP_EPB_CT_SH2(*oram_position_map));
     size_t len_to_put = 1;
-    RETURN_IF_ERROR(oram_put_partial(ORAM_POSITION_MAP_ORAM(*oram_position_map), block_id_for_index(oram_position_map, block_id), idx_in_block, len_to_put, &position, buf));
-    
-    *prev_position = buf[idx_in_block];
+    RETURN_IF_ERROR(oram_put_partial(ORAM_POSITION_MAP_ORAM(*oram_position_map), block_id_for_index(oram_position_map, block_id), idx_in_block, len_to_put, &position, prev_position));
 
     return err_SUCCESS;
 }
@@ -213,6 +242,11 @@ position_map *position_map_create(size_t size, size_t num_positions, size_t over
         POSITION_MAP_DATA(*result) = ORAM_POSITION_MAP_ORAM(*oram);
         POSITION_MAP_BASE_BLOCK_ID(*result) = ORAM_POSITION_MAP_BASE_BLOCK_ID(*oram);
         POSITION_MAP_ACCESS_BUF(*result) = ORAM_POSITION_MAP_ACCESS_BUF(*oram);
+
+        POSITION_MAP_EPB(*result) = ORAM_POSITION_MAP_EPB(*oram);
+        POSITION_MAP_EPB_CT_M_P(*result) = ORAM_POSITION_MAP_EPB_CT_M_P(*oram);
+        POSITION_MAP_EPB_CT_SH1(*result) = ORAM_POSITION_MAP_EPB_CT_SH1(*oram);
+        POSITION_MAP_EPB_CT_SH2(*result) = ORAM_POSITION_MAP_EPB_CT_SH2(*oram);
         free(oram);
     }
     else

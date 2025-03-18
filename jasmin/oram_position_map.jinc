@@ -998,6 +998,24 @@ fn __oram_put(
 ////////////////////////////////////////////////////////////////////
 
 inline
+fn block_id_for_index_ct(
+  reg u64 oram_position_map,
+  reg u64 index
+) -> reg u64
+{
+  reg u64 offset;
+  reg u64 m_prime sh1 sh2 base_block_id;
+
+  m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
+  sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];
+  sh2 = [oram_position_map + 8 * EPB_CT_SH2_ADDR];
+  offset = _ct_div(index, BLOCK_DATA_SIZE_QWORDS, m_prime, sh1, sh2);
+  base_block_id = [oram_position_map + 8 * BASE_BLOCK_ID_ADDR];
+  offset = #LEA(offset + base_block_id);
+  return offset;
+}
+
+inline
 fn block_id_for_index(
   reg u64 oram_position_map,
   reg u64 index
@@ -1020,14 +1038,14 @@ fn oram_position_map_get(
   reg u64 position
 )
 {
-  reg u64 buf bid_id_for_index idx_in_block position_map;
+  reg u64 buf bid_for_index idx_in_block position_map;
 
-  bid_id_for_index, idx_in_block = block_id_for_index(oram_position_map, block_id);
+  bid_for_index, idx_in_block = block_id_for_index(oram_position_map, block_id);
   buf = (64u)[oram_position_map + 3 * 8];
   position_map = (64u)[oram_position_map + 8];
 
   () = #spill(position, idx_in_block, buf);
-  __oram_get(position_map, bid_id_for_index, buf);
+  __oram_get(position_map, bid_for_index, buf);
   
   () = #unspill(position, idx_in_block, buf);
   (u64)[position] = (64u)[buf + 8 * idx_in_block];
@@ -1040,17 +1058,24 @@ fn oram_position_map_set(
   reg u64 prev_position
 )
 {
-  reg u64 buf bid_id_for_index idx_in_block position_map;
+  reg u64 m_prime sh1 sh2 idx_in_block bid_for_index position_map buf tmp;
 
-  bid_id_for_index, idx_in_block = block_id_for_index(oram_position_map, block_id);
-  buf = (64u)[oram_position_map + 3 * 8];
+  m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
+  sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];
+  sh2 = [oram_position_map + 8 * EPB_CT_SH2_ADDR];
+
+  idx_in_block = _ct_mod(block_id, BLOCK_DATA_SIZE_QWORDS, m_prime, sh1, sh2);
+
+  bid_for_index = block_id_for_index_ct(oram_position_map, block_id);
   position_map = (64u)[oram_position_map + 8];
+  buf = (64u)[oram_position_map + 3 * 8];
 
   () = #spill(prev_position, buf, idx_in_block);
-  __oram_put(position_map, bid_id_for_index, idx_in_block, position, buf);
+  __oram_put(position_map, bid_for_index, idx_in_block, position, buf);
   
   () = #unspill(prev_position, buf, idx_in_block);
-  (u64)[prev_position] = [buf + 8 * idx_in_block];
+  tmp = [buf + 8 * idx_in_block];
+  (u64)[prev_position] = tmp;
 }
 
 inline
@@ -1059,14 +1084,20 @@ fn _i_oram_position_map_set(
   reg u64 block_id position
 ) -> reg u64
 {
-  reg u64 buf bid_id_for_index idx_in_block position_map prev_position;
+  reg u64 m_prime sh1 sh2 idx_in_block bid_for_index position_map prev_position buf;
 
-  bid_id_for_index, idx_in_block = block_id_for_index(oram_position_map, block_id);
-  buf = (64u)[oram_position_map + 3 * 8];
+  m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
+  sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];
+  sh2 = [oram_position_map + 8 * EPB_CT_SH2_ADDR];
+
+  idx_in_block = _ct_mod(block_id, BLOCK_DATA_SIZE_QWORDS, m_prime, sh1, sh2);
+
+  bid_for_index = block_id_for_index_ct(oram_position_map, block_id);
   position_map = (64u)[oram_position_map + 8];
+  buf = (64u)[oram_position_map + 3 * 8];
 
   () = #spill(buf, idx_in_block);
-  __oram_put(position_map, bid_id_for_index, idx_in_block, position, buf);
+  __oram_put(position_map, bid_for_index, idx_in_block, position, buf);
   
   () = #unspill(buf, idx_in_block);
   prev_position = [buf + 8 * idx_in_block];

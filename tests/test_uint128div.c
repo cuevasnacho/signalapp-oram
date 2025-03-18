@@ -9,6 +9,7 @@
 
 u64 muluh64_jazz(u64 a, u64 b);
 u64 ct_div_jazz(u64 n, u64 d, u64 m_prime, size_t shift1, size_t shift2);
+u64 ct_mod_jazz(u64 n, u64 d, u64 m_prime, size_t shift1, size_t shift2);
 
 int test_muluh() {
     u64 a = 1000*(1ul << 32) + 1001;
@@ -57,10 +58,14 @@ int test_ct_div() {
     for(size_t i = 0; i < 10000; ++i) {
         getentropy(&r, sizeof(r));
         u64 q = ct_div(r, d, m_prime, shift1, shift2);
-        u64 q_jazz = ct_div(r, d, m_prime, shift1, shift2);
+        u64 q_jazz = ct_div_jazz(r, d, m_prime, shift1, shift2);
         TEST_ASSERT(q == r/d);
         TEST_ASSERT(q_jazz == r/d);
 
+        u64 m = ct_mod(r, d, m_prime, shift1, shift2);
+        u64 m_jazz = ct_mod_jazz(r, d, m_prime, shift1, shift2);
+        TEST_ASSERT(m == r%d);
+        TEST_ASSERT(m_jazz == r%d);
     }
 
     // set d to be a new random u64
