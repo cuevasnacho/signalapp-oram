@@ -38,7 +38,7 @@ fn _i_position_map_read_then_set(
 ) -> #secret reg u64, #msf reg u64
 {
   reg u64 x data prev_position;
-  #declassify data = #LEA(position_map + 8 * 2);  // *data
+  data = #LEA(position_map + 8 * 2);  // *data
   prev_position, msf = _i_oram_position_map_set(data, block_id, position, msf);
   return prev_position, msf;
 }

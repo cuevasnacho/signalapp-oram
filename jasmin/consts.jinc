@@ -17,3 +17,9 @@ param int STASH_ADDR = POSITION_MAP_ADDR + 1;
 param int ALLOCATED_UB_ADDR = STASH_ADDR + 1;
 param int CAPACITY_BLOCKS_ADDR = ALLOCATED_UB_ADDR + 1;
 param int PATH_ADDR = CAPACITY_BLOCKS_ADDR + 2;
+
+// position map indices
+param int BASE_BLOCK_ID_ADDR = 2;
+param int EPB_CT_M_P_ADDR = 5;
+param int EPB_CT_SH1_ADDR = 6;
+param int EPB_CT_SH2_ADDR = 7;

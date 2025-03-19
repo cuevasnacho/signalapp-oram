@@ -1,0 +1,41 @@
+require "util.jinc"
+
+export
+fn muluh64_jazz(
+  reg u64 a b
+) -> reg u64
+{
+  reg u64 r;
+  r = _muluh64(a, b);
+  return r;
+}
+
+export
+fn ct_div_jazz(
+  reg u64 n d m_prime shift1 shift2
+) -> reg u64
+{
+  reg u64 r;
+  n = n;
+  d = d;
+  m_prime = m_prime;
+  shift1 = shift1;
+  shift2 = shift2;
+  r = _ct_div(n, d, m_prime, shift1, shift2);
+  return r;
+}
+
+export
+fn ct_mod_jazz(
+  reg u64 n d m_prime shift1 shift2
+) -> reg u64
+{
+  reg u64 r;
+  n = n;
+  d = d;
+  m_prime = m_prime;
+  shift1 = shift1;
+  shift2 = shift2;
+  r = _ct_mod(n, d, m_prime, shift1, shift2);
+  return r;
+}

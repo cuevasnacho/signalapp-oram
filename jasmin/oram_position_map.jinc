@@ -845,6 +845,31 @@ fn __i_write_accessor_partial(
 }
 
 inline
+fn __i_write_accessor_partial_0(
+  reg ptr u64[BLOCK_DATA_SIZE_QWORDS] block_data,
+  reg u64 in_data_start,
+  reg u64 in_data
+) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS], reg u64
+{
+  reg u64 out_data;
+  reg u8 c1 c2;
+  reg bool b;
+  inline int i;
+
+  out_data = #set0();
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    // cond
+    b = in_data_start == i;
+    c1 = #SETcc(b);
+
+    out_data = _ternary(c1, block_data[i], out_data);
+    block_data[i] = _ternary(c1, in_data, block_data[i]);
+  }
+  return block_data, out_data;
+}
+
+inline
 fn __oram_get(
   reg u64 oram,
   reg u64 block_id,
@@ -967,11 +992,92 @@ fn __oram_put(
 
   return msf;
 }
+
+inline
+fn __i_oram_put(
+  reg u64 oram,
+  reg u64 block_id start,
+  reg u64 data,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
+  reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block;
+  // standard variables
+  reg u64 max_position new_position x prev_data;
+  // pointer variables
+  reg u64 stash path position_map bucket_store path_blocks;
+  // temporary variables
+  reg u64 bucket_id;
+  inline int i;
+
+  () = #spill(block_id, start, data);
+  target_block = target_block_s;
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
+  max_position = (64u)(1 << (INNER_PATH_LENGTH - 1));
+
+  new_position = __random_mod_by_pow_of_2(max_position);
+  msf = #init_msf();
+  new_position = new_position;
+
+  #declassify position_map = [oram + 8 * POSITION_MAP_ADDR];
+  () = #unspill(block_id);
+  x, msf = __position_map_read_then_set(position_map, block_id, new_position, msf);
+  () = #spill(block_id);
+  x *= 2;
+
+  #declassify path = [oram + 8 * PATH_ADDR];
+  __tree_path_update(path, x);
+
+  new_position *= 2;
+  () = #unspill(block_id);
+  target_block, msf = __i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
+  () = #spill(path, block_id);
+  () = #unspill(start, data);
+  target_block[2:BLOCK_DATA_SIZE_QWORDS], prev_data =
+    __i_write_accessor_partial_0(target_block[2:BLOCK_DATA_SIZE_QWORDS], start, data);
+  () = #spill(prev_data);
+
+  #declassify stash = [oram + 8 * STASH_ADDR];
+  () = #spill(oram);
+  target_block = __i_stash_add_block(stash, target_block);
+
+  () = #unspill(path);
+  msf = __stash_build_path(stash, path, msf);
+  () = #unspill(oram);
+
+  #declassify bucket_store = [oram];
+  #declassify path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
+  for i = 0 to INNER_PATH_LENGTH
+  {
+    #declassify bucket_id = [path + 8 + 8 * i];
+    __bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks);
+    path_blocks += BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
+  }
+
+  () = #unspill(prev_data);
+  return prev_data, msf;
+}
 ////////////////////////////////////////////////////////////////////
 
-// This function is not constant-time since `index` is secret
-// The division can be calculated using Barrett reduction but
-// the results still secret
+inline
+fn block_id_for_index_ct(
+  reg u64 oram_position_map,
+  reg u64 index
+) -> reg u64
+{
+  reg u64 offset;
+  reg u64 m_prime sh1 sh2 base_block_id;
+
+  m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
+  sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];
+  sh2 = [oram_position_map + 8 * EPB_CT_SH2_ADDR];
+  offset = _ct_div(index, BLOCK_DATA_SIZE_QWORDS, m_prime, sh1, sh2);
+  base_block_id = [oram_position_map + 8 * BASE_BLOCK_ID_ADDR];
+  offset = #LEA(offset + base_block_id);
+  return offset;
+}
+
 inline
 fn block_id_for_index(
   reg u64 oram_position_map,
@@ -1042,17 +1148,18 @@ fn _i_oram_position_map_set(
   #msf reg u64 msf
 ) -> #secret reg u64, #msf reg u64
 {
-  reg u64 buf bid_id_for_index idx_in_block position_map prev_position;
+  reg u64 m_prime sh1 sh2 idx_in_block bid_for_index position_map prev_position buf;
 
-  bid_id_for_index, idx_in_block = block_id_for_index(oram_position_map, block_id);
-  #declassify buf = (64u)[oram_position_map + 3 * 8];
+  m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
+  sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];
+  sh2 = [oram_position_map + 8 * EPB_CT_SH2_ADDR];
+
+  idx_in_block = _ct_mod(block_id, BLOCK_DATA_SIZE_QWORDS, m_prime, sh1, sh2);
+
+  bid_for_index = block_id_for_index_ct(oram_position_map, block_id);
   #declassify position_map = (64u)[oram_position_map + 8];
 
-  () = #spill(buf, idx_in_block);
-  msf = __oram_put(position_map, bid_id_for_index, idx_in_block, position, buf, msf);
-  
-  () = #unspill(buf, idx_in_block);
-  prev_position = (64u)[buf + 8 * idx_in_block];
+  prev_position, msf = __i_oram_put(position_map, bid_for_index, idx_in_block, position, msf);
 
   return prev_position, msf;
 }
