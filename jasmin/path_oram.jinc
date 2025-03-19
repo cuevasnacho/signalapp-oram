@@ -178,9 +178,9 @@ fn _i_write_accessor_full(
 
 inline
 fn _oram_access_read(
-  #public reg u64 oram,
+  reg u64 oram,
   #secret reg u64 block_id,
-  #public reg u64 out_data
+  reg u64 out_data
 )
 {
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
@@ -210,6 +210,8 @@ fn _oram_access_read(
   () = #spill(oram, block_id, new_position, out_data, target_block);
   x, msf = _i_position_map_read_then_set(position_map, block_id, new_position, msf);
   () = #unspill(oram, block_id, new_position, out_data, target_block);
+  oram = #protect(oram, msf);
+  target_block = #protect_ptr(target_block, msf);
   x *= 2;
 
   #declassify path = [oram + 8 * PATH_ADDR];
@@ -231,6 +233,7 @@ fn _oram_access_read(
   () = #unspill(path);
   msf = stash_build_path(stash, path, msf);
   () = #unspill(oram);
+  oram = #protect(oram, msf);
 
   #declassify bucket_store = [oram];
   bucket_store = #protect(bucket_store, msf);
