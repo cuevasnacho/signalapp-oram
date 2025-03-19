@@ -2,6 +2,66 @@ require "stash.jinc"
 require "position_map.jinc"
 
 inline
+fn oram_bucket_store(
+  reg u64 oram,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  reg u64 p;
+  #declassify p = (64u)[oram];
+  p = #protect(p, msf);
+  return p, msf;
+}
+
+inline
+fn oram_stash(
+  reg u64 oram,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  reg u64 p;
+  #declassify p = (64u)[oram + 8 * STASH_ADDR];
+  p = #protect(p, msf);
+  return p, msf;
+}
+
+inline
+fn oram_position_map(
+  reg u64 oram,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  reg u64 p;
+  #declassify p = (64u)[oram + 8 * POSITION_MAP_ADDR];
+  p = #protect(p, msf);
+  return p, msf;
+}
+
+inline
+fn oram_path(
+  reg u64 oram,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  reg u64 p;
+  #declassify p = (64u)[oram + 8 * PATH_ADDR];
+  p = #protect(p, msf);
+  return p, msf;
+}
+
+inline
+fn oram_allocated_ub(
+  reg u64 oram,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  reg u64 p;
+  #declassify p = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
+  p = #protect(p, msf);
+  return p, msf;
+}
+
+inline
 fn oram_clear(
   #public reg u64 oram,
   #msf reg u64 msf
@@ -9,12 +69,10 @@ fn oram_clear(
 {
   reg u64 bucket_store stash;
 
-  #declassify bucket_store = (64u)[oram];
-  bucket_store = #protect(bucket_store, msf);
+  bucket_store, msf = oram_bucket_store(oram, msf);
   msf = bucket_store_clear(bucket_store, msf);
 
-  #declassify stash = (64u)[oram + 8 * STASH_ADDR];
-  stash = #protect(stash, msf);
+  stash, msf = oram_stash(oram, msf);
   msf = stash_clear(stash, msf);
 
   (u64)[oram + 8 * ALLOCATED_UB_ADDR] = 0;
@@ -93,10 +151,8 @@ fn _i_oram_read_path_for_block(
   inline int i;
 
   () = #spill(new_position);
-  #declassify stash = (64u)[oram + 8 * STASH_ADDR];
-  stash = #protect(stash, msf);
-  #declassify bucket_store = [oram];
-  bucket_store = #protect(bucket_store, msf);
+  stash, msf = oram_stash(oram, msf);
+  bucket_store, msf = oram_bucket_store(oram, msf);
   for i = 0 to PATH_LENGTH
   {
     #declassify value = (64u)[path + 8 + 8 * i];  //! if value is secret we cannot read in _i_stash_add_path_bucket:205
@@ -205,8 +261,7 @@ fn _oram_access_read(
   new_position = _random_mod_by_pow_of_2(max_position);
   msf = #init_msf();
 
-  #declassify position_map = [oram + 8 * POSITION_MAP_ADDR];
-  position_map = #protect(position_map, msf);
+  position_map, msf = oram_position_map(oram, msf);
   () = #spill(oram, block_id, new_position, out_data, target_block);
   x, msf = _i_position_map_read_then_set(position_map, block_id, new_position, msf);
   () = #unspill(oram, block_id, new_position, out_data, target_block);
@@ -214,8 +269,7 @@ fn _oram_access_read(
   target_block = #protect_ptr(target_block, msf);
   x *= 2;
 
-  #declassify path = [oram + 8 * PATH_ADDR];
-  path = #protect(path, msf);
+  path, msf = oram_path(oram, msf);
   tree_path_update(path, x);
 
   new_position *= 2;
@@ -225,8 +279,7 @@ fn _oram_access_read(
   out_data = #protect(out_data, msf);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
-  #declassify stash = [oram + 8 * STASH_ADDR];
-  stash = #protect(stash, msf);
+  stash, msf = oram_stash(oram, msf);
   () = #spill(oram);
   target_block, msf = _i_stash_add_block(stash, target_block, msf);
 
@@ -235,10 +288,8 @@ fn _oram_access_read(
   () = #unspill(oram);
   oram = #protect(oram, msf);
 
-  #declassify bucket_store = [oram];
-  bucket_store = #protect(bucket_store, msf);
-  #declassify path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
-  path_blocks = #protect(path_blocks, msf);
+  bucket_store, msf = oram_bucket_store(oram, msf);
+  path_blocks, msf = stash_path_blocks(stash, msf);
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   for i = 0 to PATH_LENGTH
   {
@@ -278,15 +329,15 @@ fn _oram_access_write(
   new_position = _random_mod_by_pow_of_2(max_position);
   msf = #init_msf();
 
-  #declassify position_map = [oram + 8 * POSITION_MAP_ADDR];
-  position_map = #protect(position_map, msf);
+  position_map, msf = oram_position_map(oram, msf);
   () = #spill(oram, block_id, new_position, in_data, target_block);
   x, msf = _i_position_map_read_then_set(position_map, block_id, new_position, msf);
   () = #unspill(oram, block_id, new_position, in_data, target_block);
+  oram = #protect(oram, msf);
+  target_block = #protect_ptr(target_block, msf);
   x *= 2;
 
-  #declassify path = [oram + 8 * PATH_ADDR];
-  path = #protect(path, msf);
+  path, msf = oram_path(oram, msf);
   tree_path_update(path, x);
 
   new_position *= 2;
@@ -296,19 +347,17 @@ fn _oram_access_write(
   in_data = #protect(in_data, msf);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = _i_write_accessor_full(target_block[2:BLOCK_DATA_SIZE_QWORDS], in_data);
 
-  #declassify stash = [oram + 8 * STASH_ADDR];
-  stash = #protect(stash, msf);
+  stash, msf = oram_stash(oram, msf);
   () = #spill(oram);
   target_block, msf = _i_stash_add_block(stash, target_block, msf);
 
   () = #unspill(path);
   msf = stash_build_path(stash, path, msf);
   () = #unspill(oram);
+  oram = #protect(oram, msf);
 
-  #declassify bucket_store = [oram];
-  bucket_store = #protect(bucket_store, msf);
-  #declassify path_blocks = [stash + 8 * PATH_BLOCKS_ADDR];
-  path_blocks = #protect(path_blocks, msf);
+  bucket_store, msf = oram_bucket_store(oram, msf);
+  path_blocks, msf = stash_path_blocks(stash, msf);
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   for i = 0 to PATH_LENGTH
   {
@@ -328,8 +377,7 @@ fn oram_allocate_block(
   reg u64 allocated_ub requested_ub;
   reg bool cond;
 
-  #declassify allocated_ub = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
-  allocated_ub = #protect(allocated_ub, msf);
+  allocated_ub, msf = oram_allocated_ub(oram, msf);
   cond = allocated_ub < CAPACITY_BLOCKS;
   if (cond) {
     msf = #update_msf(cond, msf);
@@ -352,8 +400,7 @@ fn oram_allocate_contiguous(
   reg u64 requested_ub next_block allocated_ub;
   reg bool cond;
 
-  #declassify allocated_ub = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
-  allocated_ub = #protect(allocated_ub, msf);
+  allocated_ub, msf = oram_allocated_ub(oram, msf);
   requested_ub = #LEA(allocated_ub + num_blocks);
   cond = requested_ub <= CAPACITY_BLOCKS;
   if (cond) {

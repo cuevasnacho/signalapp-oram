@@ -49,7 +49,9 @@ fn stash_add_block_jazz(
   reg u64 stash new_block
 )
 {
-  stash_add_block(stash, new_block);
+  #msf reg u64 msf;
+  msf = #init_msf();
+  stash_add_block(stash, new_block, msf);
 }
 
 export
