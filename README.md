@@ -4,7 +4,7 @@
   - There are some `#declassify` which should be reviewed.
 - `benchmark-security`: This branch contains a speed test for `jazz-security-check`.
 - `oram-position-map`: Implementation of oram position map (2-level position map)
-- `oram-pm-security`: `oram-position-map` code defended against CT and S-CT. Not finished since oram position map uses a secret as index.
+- `oram-pm-security`: `oram-position-map` code defended against CT and S-CT. We added a CT division and modulo, and made oblivious a memory access which was causing security issues.
 - `3-level-pm`: Implementation of oram position map (3-level position map)
 - `4-level-pm`: Implementation of oram position map (4-level position map)
 
