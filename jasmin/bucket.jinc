@@ -1,16 +1,5 @@
 require "tree_path.jinc"
-
-inline
-fn bucket_store_data(
-  reg u64 bucket_store,
-  #msf reg u64 msf
-) -> reg u64, #msf reg u64
-{
-  reg u64 p;
-  #declassify p = (64u)[bucket_store + 16];
-  p = #protect(p, msf);
-  return p, msf;
-}
+require "pointers.jinc"
 
 inline
 fn bucket_store_clear(

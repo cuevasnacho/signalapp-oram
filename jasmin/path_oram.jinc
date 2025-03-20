@@ -2,66 +2,6 @@ require "stash.jinc"
 require "position_map.jinc"
 
 inline
-fn oram_bucket_store(
-  reg u64 oram,
-  #msf reg u64 msf
-) -> reg u64, #msf reg u64
-{
-  reg u64 p;
-  #declassify p = (64u)[oram];
-  p = #protect(p, msf);
-  return p, msf;
-}
-
-inline
-fn oram_stash(
-  reg u64 oram,
-  #msf reg u64 msf
-) -> reg u64, #msf reg u64
-{
-  reg u64 p;
-  #declassify p = (64u)[oram + 8 * STASH_ADDR];
-  p = #protect(p, msf);
-  return p, msf;
-}
-
-inline
-fn oram_position_map(
-  reg u64 oram,
-  #msf reg u64 msf
-) -> reg u64, #msf reg u64
-{
-  reg u64 p;
-  #declassify p = (64u)[oram + 8 * POSITION_MAP_ADDR];
-  p = #protect(p, msf);
-  return p, msf;
-}
-
-inline
-fn oram_path(
-  reg u64 oram,
-  #msf reg u64 msf
-) -> reg u64, #msf reg u64
-{
-  reg u64 p;
-  #declassify p = (64u)[oram + 8 * PATH_ADDR];
-  p = #protect(p, msf);
-  return p, msf;
-}
-
-inline
-fn oram_allocated_ub(
-  reg u64 oram,
-  #msf reg u64 msf
-) -> reg u64, #msf reg u64
-{
-  reg u64 p;
-  #declassify p = (64u)[oram + 8 * ALLOCATED_UB_ADDR];
-  p = #protect(p, msf);
-  return p, msf;
-}
-
-inline
 fn oram_clear(
   #public reg u64 oram,
   #msf reg u64 msf
