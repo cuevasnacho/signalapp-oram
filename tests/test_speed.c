@@ -7,7 +7,7 @@
 #include "../include/bucket.h"
 #include "../include/path_oram.h"
 
-#define CAPACITY 1<<22
+#define CAPACITY 1<<24
 #define NRUNS 1330
 #define TEST_STASH_SIZE 100
 

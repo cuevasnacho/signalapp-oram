@@ -1,6 +1,4 @@
-require "consts.jinc"
-require "params.jinc"
-require "util.jinc"
+require "oram_position_map_1.jinc"
 
 ////////////////////////////////////////////////////////////////////
 // tree path implementation
@@ -61,7 +59,7 @@ fn __tree_path_update(
   reg bool cond;
   inline int root root_level level;
 
-  root_level = INNER_PATH_LENGTH - 1;
+  root_level = PATH_LENGTH_0 - 1;
   root = ((64u)1 << root_level) - 1;
 
   offset = __coords_for_val(leaf);
@@ -171,58 +169,6 @@ fn __bucket_store_write_bucket_blocks(
   }
 
   return msf;
-}
-
-////////////////////////////////////////////////////////////////////
-inline
-fn __scan_position_map_set(
-  #public reg u64 position_map,
-  #secret reg u64 block_id,
-  #secret reg u64 position,
-  #msf reg u64 msf
-) -> #secret reg u64, #msf reg u64
-{
-  reg u64 prev_position i;
-  reg u8 cond;
-  reg bool b wcond;
-
-  prev_position = position;
-  // linear scan of array so that every access looks the same.
-  i = 0;
-  while { wcond = i < INNER_POSITION_MAP_SIZE; } (wcond) {
-    msf = #update_msf(wcond, msf);
-    b = (64u)i == block_id;
-    cond = #SETcc(b);
-    
-    reg u64 tmp va;
-    va = (64u)[position_map];
-    tmp = _ternary(cond, prev_position, va);
-    (u64)[position_map] = tmp;
-    prev_position = prev_position;
-    prev_position = _ternary(cond, va, prev_position);
-    prev_position = prev_position;
-
-    position_map = #LEA(position_map + 8);
-    i = #LEA(i + 1);
-  }
-  msf = #update_msf(!wcond, msf);
-
-  return prev_position, msf;
-}
-
-inline
-fn __position_map_read_then_set(
-  #public reg u64 position_map,
-  #secret reg u64 block_id,
-  #secret reg u64 position,
-  #msf reg u64 msf
-) -> #secret reg u64, #msf reg u64
-{
-  reg u64 x data;
-  #declassify data = [position_map + 8 * 3];  // *data
-  data = #protect(data, msf);
-  x, msf = __scan_position_map_set(data, block_id, position, msf);
-  return x, msf;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -593,8 +539,8 @@ fn __stash_assign_block_to_bucket_overflow(
   inline int lvl max_level;
   
   // the block cannot be assigned to this level or higher
-  max_level = (64u)INNER_PATH_LENGTH;
-  assignment_index = #LEA(BLOCKS_PER_BUCKET * INNER_PATH_LENGTH + index);
+  max_level = (64u)PATH_LENGTH_0;
+  assignment_index = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH_0 + index);
 
   path_blocks, msf = __stash_path_blocks(stash, msf);
   tmp = assignment_index;
@@ -684,10 +630,10 @@ fn __stash_place_empty_blocks(
   bucket_assignments, msf = __stash_bucket_assignments(stash, msf);
   curr_bucket = #set0();
   i = 0;
-  while { cond = i < INNER_STASH_NUM_BLOCKS; } (cond) {
+  while { cond = i < STASH_NUM_BLOCKS_0; } (cond) {
     msf = #update_msf(cond, msf);
     c1 = 0; // found_curr_bucket
-    for j = 0 to INNER_PATH_LENGTH
+    for j = 0 to PATH_LENGTH_0
     {
       c1 = !c1;
       // bucket_has_room
@@ -744,12 +690,12 @@ fn __stash_assign_buckets(
 
   // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
   bucket_assignments, msf = __stash_bucket_assignments(stash, msf);
-  for i = 0 to INNER_STASH_NUM_BLOCKS { (u64)[bucket_assignments + 8 * i] = (64u)-1; }
+  for i = 0 to STASH_NUM_BLOCKS_0 { (u64)[bucket_assignments + 8 * i] = (64u)-1; }
   bucket_occupancy, msf = __stash_bucket_occupancy(stash, msf);
-  for i = 0 to INNER_PATH_LENGTH { (u64)[bucket_occupancy + 8 * i] = (64u)0; }
+  for i = 0 to PATH_LENGTH_0 { (u64)[bucket_occupancy + 8 * i] = (64u)0; }
 
   // assign blocks in path to buckets first
-  for lvl = 0 to INNER_PATH_LENGTH
+  for lvl = 0 to PATH_LENGTH_0
   { for i = 0 to BLOCKS_PER_BUCKET
     {
       msf = __stash_assign_block_to_bucket_path(stash, path, lvl * BLOCKS_PER_BUCKET + i, msf);
@@ -962,7 +908,7 @@ fn __stash_build_path(
 
   blocks, msf = __stash_blocks(stash, msf);
   overflow_size, msf = __stash_overflow_ub(stash, msf);
-  overflow_size = #LEA(overflow_size + INNER_PATH_LENGTH * BLOCKS_PER_BUCKET);
+  overflow_size = #LEA(overflow_size + PATH_LENGTH_0 * BLOCKS_PER_BUCKET);
 
   bucket_assignments, msf = __stash_bucket_assignments(stash, msf);
 
@@ -1053,7 +999,7 @@ fn __i_oram_read_path_for_block(
   () = #spill(new_position);
   stash, msf = __oram_stash(oram, msf);
   bucket_store, msf = __oram_bucket_store(oram, msf);
-  for i = 0 to INNER_PATH_LENGTH
+  for i = 0 to PATH_LENGTH_0
   {
     #declassify value = (64u)[path + 8 + 8 * i];
     value = #protect(value, msf);
@@ -1157,24 +1103,28 @@ fn __oram_get(
   () = #spill(out_data);
   target_block = target_block_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
-  max_position = (64u)(1 << (INNER_PATH_LENGTH - 1));
+  max_position = (64u)(1 << (PATH_LENGTH_0 - 1));
 
   new_position = __random_mod_by_pow_of_2(max_position);
   msf = #init_msf();
-  
+
   position_map, msf = __oram_position_map(oram, msf);
-  x, msf = __position_map_read_then_set(position_map, block_id, new_position, msf);
+  () = #spill(oram, target_block, block_id, new_position);
+  x, msf = __position_map_read_then_set_1(position_map, block_id, new_position, msf);
   x *= 2;
 
+  () = #unspill(oram, target_block, block_id, new_position);
   path, msf = __oram_path(oram, msf);
   __tree_path_update(path, x);
 
   new_position *= 2;
+  () = #spill(oram);
   target_block, msf = __i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
   () = #spill(path);
   () = #unspill(out_data);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] = __i_read_accessor(target_block[2:BLOCK_DATA_SIZE_QWORDS], out_data);
 
+  () = #unspill(oram);
   stash, msf = __oram_stash(oram, msf);
   () = #spill(oram);
   target_block, msf = __i_stash_add_block(stash, target_block, msf);
@@ -1186,7 +1136,7 @@ fn __oram_get(
   bucket_store, msf = __oram_bucket_store(oram, msf);
   path_blocks, msf = __stash_path_blocks(stash, msf);
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
-  for i = 0 to INNER_PATH_LENGTH
+  for i = 0 to PATH_LENGTH_0
   {
     #declassify bucket_id = [path + 8 + 8 * i];
     bucket_id = #protect(bucket_id, msf);
@@ -1218,29 +1168,30 @@ fn __oram_put(
   () = #spill(block_id, start, data, prev_data);
   target_block = target_block_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
-  max_position = (64u)(1 << (INNER_PATH_LENGTH - 1));
+  max_position = (64u)(1 << (PATH_LENGTH_0 - 1));
 
   new_position = __random_mod_by_pow_of_2(max_position);
   msf = #init_msf();
   new_position = new_position;
 
   position_map, msf = __oram_position_map(oram, msf);
-  () = #unspill(block_id);
-  x, msf = __position_map_read_then_set(position_map, block_id, new_position, msf);
-  () = #spill(block_id);
+  () = #spill(oram, target_block, block_id, new_position);
+  x, msf = __position_map_read_then_set_1(position_map, block_id, new_position, msf);
   x *= 2;
 
+  () = #unspill(oram, target_block, block_id, new_position);
   path, msf = __oram_path(oram, msf);
   __tree_path_update(path, x);
 
   new_position *= 2;
-  () = #unspill(block_id);
+  () = #spill(oram);
   target_block, msf = __i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
-  () = #spill(path, block_id);
+  () = #spill(path);
   () = #unspill(start, data, prev_data);
   target_block[2:BLOCK_DATA_SIZE_QWORDS] =
     __i_write_accessor_partial(target_block[2:BLOCK_DATA_SIZE_QWORDS], start, data, prev_data);
 
+  () = #unspill(oram);
   stash, msf = __oram_stash(oram, msf);
   () = #spill(oram);
   target_block, msf = __i_stash_add_block(stash, target_block, msf);
@@ -1251,7 +1202,7 @@ fn __oram_put(
 
   bucket_store, msf = __oram_bucket_store(oram, msf);
   path_blocks, msf = __stash_path_blocks(stash, msf);
-  for i = 0 to INNER_PATH_LENGTH
+  for i = 0 to PATH_LENGTH_0
   {
     #declassify bucket_id = [path + 8 + 8 * i];
     bucket_id = #protect(bucket_id, msf);
@@ -1280,33 +1231,34 @@ fn __i_oram_put(
   reg u64 bucket_id;
   inline int i;
 
-  () = #spill(block_id, start, data);
+  () = #spill(start, data);
   target_block = target_block_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
-  max_position = (64u)(1 << (INNER_PATH_LENGTH - 1));
+  max_position = (64u)(1 << (PATH_LENGTH_0 - 1));
 
   new_position = __random_mod_by_pow_of_2(max_position);
   msf = #init_msf();
   new_position = new_position;
 
   position_map, msf = __oram_position_map(oram, msf);
-  () = #unspill(block_id);
-  x, msf = __position_map_read_then_set(position_map, block_id, new_position, msf);
-  () = #spill(block_id);
+  () = #spill(oram, target_block, block_id, new_position);
+  x, msf = __position_map_read_then_set_1(position_map, block_id, new_position, msf);
   x *= 2;
-
+  
+  () = #unspill(oram, target_block, block_id, new_position);
   path, msf = __oram_path(oram, msf);
   __tree_path_update(path, x);
 
   new_position *= 2;
-  () = #unspill(block_id);
+  () = #spill(oram);
   target_block, msf = __i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
-  () = #spill(path, block_id);
+  () = #spill(path);
   () = #unspill(start, data);
   target_block[2:BLOCK_DATA_SIZE_QWORDS], prev_data =
     __i_write_accessor_partial_0(target_block[2:BLOCK_DATA_SIZE_QWORDS], start, data);
   () = #spill(prev_data);
 
+  () = #unspill(oram);
   stash, msf = __oram_stash(oram, msf);
   () = #spill(oram);
   target_block, msf = __i_stash_add_block(stash, target_block, msf);
@@ -1319,7 +1271,7 @@ fn __i_oram_put(
 
   bucket_store, msf = __oram_bucket_store(oram, msf);
   path_blocks, msf = __stash_path_blocks(stash, msf);
-  for i = 0 to INNER_PATH_LENGTH
+  for i = 0 to PATH_LENGTH_0
   {
     #declassify bucket_id = [path + 8 + 8 * i];
     bucket_id = #protect(bucket_id, msf);
