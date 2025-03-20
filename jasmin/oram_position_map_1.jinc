@@ -107,7 +107,6 @@ fn __tree_path_update_1(
 )
 {
   reg u64 offset;
-  reg bool cond;
   inline int root root_level level;
 
   root_level = PATH_LENGTH_1 - 1;
@@ -323,7 +322,7 @@ fn __i_stash_scan_overflow_for_target_1(
   #msf reg u64 msf
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS], #msf reg u64
 {
-  reg u64 ub i bid overflow_blocks offset;
+  reg u64 ub i bid overflow_blocks;
   reg u8 c;
   reg bool cond;
 
@@ -368,7 +367,7 @@ fn __i_stash_add_block_1(
   #msf reg u64 msf
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS], #msf reg u64
 {
-  reg u64 bid overflow_capacity overflow_blocks i tmp;
+  reg u64 bid overflow_capacity overflow_blocks i;
   reg u8 c1 c2;
   reg bool b cond;
 
@@ -406,7 +405,7 @@ fn __stash_assign_block_to_bucket_path_1(
   // spill_to_mmx variables
   #spill_to_mmx reg u64 bucket_assignments bid bpos;
   // pointer variables
-  reg u64 path_blocks block bucket_occupancy;
+  reg u64 path_blocks bucket_occupancy;
   // temporary variables
   reg u64 r1 r2 bucket_id tree_bound tmp;
   // boolean variables
@@ -488,7 +487,7 @@ fn __stash_assign_block_to_bucket_overflow_1(
   // spill_to_mmx variables
   #spill_to_mmx reg u64 assignment_index bucket_assignments bid bpos;
   // pointer variables
-  reg u64 path_blocks block bucket_occupancy;
+  reg u64 path_blocks bucket_occupancy;
   // temporary variables
   reg u64 r1 r2 bucket_id tree_bound tmp;
   // boolean variables
@@ -946,7 +945,7 @@ fn __i_write_accessor_partial_1(
 ) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS], reg u64
 {
   reg u64 out_data;
-  reg u8 c1 c2;
+  reg u8 c1;
   reg bool b;
   inline int i;
 
@@ -1064,7 +1063,7 @@ fn _i_oram_position_map_set_1(
   #msf reg u64 msf
 ) -> reg u64, #msf reg u64
 {
-  reg u64 m_prime sh1 sh2 idx_in_block bid_for_index position_map prev_position buf;
+  reg u64 m_prime sh1 sh2 idx_in_block bid_for_index position_map prev_position;
 
   m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
   sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];
@@ -1087,7 +1086,7 @@ fn __position_map_read_then_set_1(
   #msf reg u64 msf
 ) -> reg u64, #msf reg u64
 {
-  reg u64 x data prev_position;
+  reg u64 data prev_position;
   data = #LEA(position_map + 8 * 2);  // *data
   prev_position, msf = _i_oram_position_map_set_1(data, block_id, position, msf);
   return prev_position, msf;

@@ -56,7 +56,6 @@ fn __tree_path_update(
 )
 {
   reg u64 offset;
-  reg bool cond;
   inline int root root_level level;
 
   root_level = PATH_LENGTH_0 - 1;
@@ -363,7 +362,7 @@ fn __stash_assign_block_to_bucket_path(
   reg u64 r1 r2 bucket_id tree_bound tmp;
   // boolean variables
   reg u8 c1 c2 c3;
-  reg bool b cond;
+  reg bool b;
   inline int max_level lvl offset;
   
   // the block cannot be assigned to this level or higher
@@ -904,7 +903,7 @@ fn __i_write_accessor_partial(
 ) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
 {
   reg u64 tmp0;
-  reg u8 c1 c2;
+  reg u8 c1;
   reg bool b;
   inline int i;
 
@@ -932,7 +931,7 @@ fn __i_write_accessor_partial_0(
 ) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS], reg u64
 {
   reg u64 out_data;
-  reg u8 c1 c2;
+  reg u8 c1;
   reg bool b;
   inline int i;
 
@@ -1242,7 +1241,7 @@ fn _i_oram_position_map_set(
   #msf reg u64 msf
 ) -> #secret reg u64, #msf reg u64
 {
-  reg u64 m_prime sh1 sh2 idx_in_block bid_for_index position_map prev_position buf;
+  reg u64 m_prime sh1 sh2 idx_in_block bid_for_index position_map prev_position;
 
   m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
   sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];

@@ -23,7 +23,7 @@ fn position_map_read_then_set(
   #msf reg u64 msf
 ) -> #msf reg u64
 {
-  reg u64 x data;
+  reg u64 data;
   data = #LEA(position_map + 8 * 2);  // *data
   msf = oram_position_map_set(data, block_id, position, prev_position, msf);
   return msf;
@@ -37,7 +37,7 @@ fn _i_position_map_read_then_set(
   #msf reg u64 msf
 ) -> #secret reg u64, #msf reg u64
 {
-  reg u64 x data prev_position;
+  reg u64 data prev_position;
   data = #LEA(position_map + 8 * 2);  // *data
   prev_position, msf = _i_oram_position_map_set(data, block_id, position, msf);
   return prev_position, msf;

@@ -74,7 +74,6 @@ fn tree_path_update(
 )
 {
   reg u64 offset;
-  reg bool cond;
   inline int root root_level level;
 
   root_level = PATH_LENGTH - 1;
