@@ -1,13 +1,14 @@
 param int EMPTY_BLOCK_ID = -1;
+param int STASH_GROWTH_INCREMENT = 20;
 param int BLOCK_TYPE_OVERFLOW = 0;
 param int BLOCK_TYPE_PATH = 1;
 param int SCAN_THRESHOLD = 1<<14; // position_map type
-param int ARR_SIZE = 32;  // TODO: remove from bitonic_sort
 
 // stash indices
 param int PATH_BLOCKS_ADDR = 1;
 param int OVERFLOW_BLOCKS_ADDR = PATH_BLOCKS_ADDR + 1;
-param int OVERFLOW_CAPACITY_ADDR = OVERFLOW_BLOCKS_ADDR + 3;
+param int NUM_BLOCKS_ADDR = OVERFLOW_BLOCKS_ADDR + 1;
+param int OVERFLOW_CAPACITY_ADDR = NUM_BLOCKS_ADDR + 2;
 param int BUCKET_OCCUPANCY_ADDR = OVERFLOW_CAPACITY_ADDR + 1;
 param int BUCKET_ASSIGNMENTS_ADDR = BUCKET_OCCUPANCY_ADDR + 1;
 

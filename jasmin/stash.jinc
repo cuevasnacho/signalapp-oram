@@ -22,6 +22,56 @@ fn stash_overflow_blocks(
   return p;
 }
 
+inline
+fn _stash_extend_overflow(
+  reg u64 stash
+)
+{
+  reg u64 old_num_blocks new_num_blocks;
+  reg u64 addr old_len new_len flags new_addr prot fd offset;
+  reg u64 blocks bucket_assignments;
+  inline int i;
+
+  old_num_blocks = [stash + 8 * NUM_BLOCKS_ADDR];
+  new_num_blocks = #LEA(old_num_blocks + STASH_GROWTH_INCREMENT);
+
+  // (re)allocate new space, free the old
+  blocks = [stash];
+  old_len = old_num_blocks * DECRYPTED_BLOCK_SIZE_QWORDS;
+  new_len = new_num_blocks * DECRYPTED_BLOCK_SIZE_QWORDS;
+  flags = 1;
+  new_addr = #mremap(blocks, old_len, new_len, flags);
+
+  // free bucket_assignments
+  bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  old_len = old_num_blocks * 8;
+  () = #munmap(bucket_assignments, old_len);
+
+  // mmap memory for bucket_assignments
+  addr = 0;
+  new_len = new_num_blocks * 8;
+  prot = 0x1 | 0x2;   // PROT_READ | PROT_WRITE
+  flags = 0x2 | 0x20; // MAP_PRIVATE | MAP_ANONYMOUS
+  fd = -1;
+  offset = 0;
+  [stash + 8 * BUCKET_ASSIGNMENTS_ADDR] = #mmap(addr, new_len, prot, flags, fd, offset);
+
+  // update our alias pointers
+  [stash + 8 * PATH_BLOCKS_ADDR] = blocks;
+  [stash + 8 * OVERFLOW_BLOCKS_ADDR] = blocks + PATH_LENGTH * BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS;
+
+  // initialize new memory
+  blocks = #LEA(blocks + old_num_blocks * DECRYPTED_BLOCK_SIZE_QWORDS);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * STASH_GROWTH_INCREMENT
+  {
+    [blocks + 8 * i] = -1;
+  }
+
+  // update counts
+  [stash + 8 * NUM_BLOCKS_ADDR] = new_num_blocks;
+  [stash + 8 * OVERFLOW_CAPACITY_ADDR] += STASH_GROWTH_INCREMENT;
+}
+
 // returns the index of the last nonempty blocks in overflow
 fn _stash_overflow_ub(
   reg u64 stash
@@ -291,22 +341,26 @@ fn _i_stash_add_block(
   overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
 
   c1 = 0; // inserted
-  i = 0;
-  while (i < overflow_capacity)
-  {
-    bid = [overflow_blocks];
-    // cond
-    c1 = !c1;
-    b = bid == EMPTY_BLOCK_ID;
-    c2 = #SETcc(b);
-    c2 &= c1;
-    new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-    c1 = !c1;
-    c1 |= c2;
-    i += 1;
-    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  while {
+    i = 0;
+    while (i < overflow_capacity)
+    {
+      bid = [overflow_blocks];
+      // cond
+      c1 = !c1;
+      b = bid == EMPTY_BLOCK_ID;
+      c2 = #SETcc(b);
+      c2 &= c1;
+      new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+      c1 = !c1;
+      c1 |= c2;
+      i += 1;
+      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+    }
+  } (c1 == 0) { // !inserted
+    _stash_extend_overflow(stash);
   }
-  // TODO: implement extend overflow and insert
+
   return new_block;
 }
 
