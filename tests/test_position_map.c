@@ -26,7 +26,7 @@ int test_position_map_lifecycle()
 }
 
 int test_position_map_recursion_depth() {
-    position_map* pm = position_map_create(1 << 10, 1 << 10, TEST_STASH_SIZE, getentropy);
+    position_map* pm = position_map_create(SCAN_THRESHOLD, SCAN_THRESHOLD, TEST_STASH_SIZE, getentropy);
     TEST_ASSERT(position_map_recursion_depth(pm) == 1);
     position_map_destroy(pm);
 
@@ -91,8 +91,10 @@ int test_position_map_initial_data()
 
 int test_position_map_put_get()
 {
-    position_map *pm0 = position_map_create(1 << 18, 1 << 17, TEST_STASH_SIZE, getentropy);
-    position_map *pm1 = position_map_create(1 << 18, 1 << 17, TEST_STASH_SIZE, getentropy);
+    size_t capacity_u64 = 1 << 24;
+    size_t num_blocks = (capacity_u64 / BLOCK_DATA_SIZE_QWORDS) + (capacity_u64 % BLOCK_DATA_SIZE_QWORDS == 0 ? 0 : 1);
+    position_map *pm0 = position_map_create(num_blocks, num_blocks, TEST_STASH_SIZE, getentropy);
+    position_map *pm1 = position_map_create(num_blocks, num_blocks, TEST_STASH_SIZE, getentropy);
 
     u64 prev;
     RETURN_IF_ERROR(position_map_read_then_set(pm0, 1234, 4321, &prev));
@@ -113,45 +115,55 @@ int test_position_map_put_get()
 
 int test_position_map_put_get_repeat()
 {
-    size_t num_positions = 1 << 10;
-    position_map *pm = position_map_create(num_positions, num_positions, TEST_STASH_SIZE, getentropy);
+    size_t capacity_u64 = 1 << 24;
+    size_t num_blocks = (capacity_u64 / BLOCK_DATA_SIZE_QWORDS) + (capacity_u64 % BLOCK_DATA_SIZE_QWORDS == 0 ? 0 : 1);
+    position_map *pm0 = position_map_create(num_blocks, num_blocks, TEST_STASH_SIZE, getentropy);
+    position_map *pm1 = position_map_create(num_blocks, num_blocks, TEST_STASH_SIZE, getentropy);
 
-    for (size_t i = 0; i < num_positions; ++i)
+    for (size_t i = 0; i < num_blocks; ++i)
     {
         u64 prev;
-        RETURN_IF_ERROR(position_map_read_then_set(pm, i, i, &prev));
+        RETURN_IF_ERROR(position_map_read_then_set(pm0, i, i, &prev));
+        position_map_read_then_set_jazz(pm1, i, i, &prev);
     }
 
-    for (size_t i = 0; i < num_positions; ++i)
+    for (size_t i = 0; i < num_blocks; ++i)
     {
-        u64 result;
-        RETURN_IF_ERROR(position_map_get(pm, i, &result));
-        TEST_ASSERT(result == i);
+        u64 result0, result1;
+        RETURN_IF_ERROR(position_map_get(pm0, i, &result0));
+        RETURN_IF_ERROR(position_map_get(pm1, i, &result1));
+        TEST_ASSERT(result0 == i);
+        TEST_ASSERT(result1 == i);
     }
-    for (size_t i = 0; i < num_positions; ++i)
+    for (size_t i = 0; i < num_blocks; ++i)
     {
-        u64 old_pos = 0;
-        RETURN_IF_ERROR(position_map_read_then_set(pm, i, num_positions - i, &old_pos));
-        TEST_ASSERT(old_pos == i);
+        u64 old_pos0 = 0, old_pos1 = 0;
+        RETURN_IF_ERROR(position_map_read_then_set(pm0, i, num_blocks - i, &old_pos0));
+        position_map_read_then_set_jazz(pm1, i, num_blocks - i, &old_pos1);
+        TEST_ASSERT(old_pos0 == i);
+        TEST_ASSERT(old_pos1 == i);
     }
 
-    for (size_t i = 0; i < num_positions; ++i)
+    for (size_t i = 0; i < num_blocks; ++i)
     {
-        u64 result;
-        RETURN_IF_ERROR(position_map_get(pm, i, &result));
-        TEST_ASSERT(result == num_positions - i);
+        u64 result0, result1;
+        RETURN_IF_ERROR(position_map_get(pm0, i, &result0));
+        RETURN_IF_ERROR(position_map_get(pm1, i, &result1));
+        TEST_ASSERT(result0 == num_blocks - i);
+        TEST_ASSERT(result1 == num_blocks - i);
     }
-    position_map_destroy(pm);
+    position_map_destroy(pm0);
+    position_map_destroy(pm1);
 
     return err_SUCCESS;
 }
 void public_position_map_tests()
 {
-    // RUN_TEST(test_position_map_lifecycle());
-    // RUN_TEST(test_position_map_recursion_depth());
-    // RUN_TEST(test_position_map_initial_data());
+    RUN_TEST(test_position_map_lifecycle());
+    RUN_TEST(test_position_map_recursion_depth());
+    RUN_TEST(test_position_map_initial_data());
     RUN_TEST(test_position_map_put_get());
-    // RUN_TEST(test_position_map_put_get_repeat());
+    RUN_TEST(test_position_map_put_get_repeat());
 }
 
 int main()
