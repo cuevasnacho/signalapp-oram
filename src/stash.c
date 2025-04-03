@@ -742,31 +742,49 @@ int test_stash_insert_read()
 
 int test_fill_stash() {
     size_t small_stash_size = 20;
-    stash *stash = stash_create(20, small_stash_size);
-    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i) {
+    stash *stash0 = stash_create(20, small_stash_size);
+    stash *stash1 = stash_create(20, small_stash_size);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash0); ++i) {
         block b = {0}; BLOCK_ID(b) = i; BLOCK_POSITION(b) = 2*(100+i);
-        RETURN_IF_ERROR(stash_add_block(stash, &b));
+        RETURN_IF_ERROR(stash_add_block(stash0, &b));
+        // check that it is in the stash
+    }
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash1); ++i) {
+        block b = {0}; BLOCK_ID(b) = i; BLOCK_POSITION(b) = 2*(100+i);
+        stash_add_block_jazz(stash1, &b);
         // check that it is in the stash
     }
 
-    block b = {0};
-    BLOCK_ID(b) = STASH_OVERFLOW_CAPACITY(*stash); BLOCK_POSITION(b) = 2*(100+STASH_OVERFLOW_CAPACITY(*stash));
+    block b0 = {0};
+    block b1 = {0};
+    BLOCK_ID(b0) = STASH_OVERFLOW_CAPACITY(*stash0); BLOCK_POSITION(b0) = 2*(100+STASH_OVERFLOW_CAPACITY(*stash0));
+    BLOCK_ID(b1) = STASH_OVERFLOW_CAPACITY(*stash1); BLOCK_POSITION(b1) = 2*(100+STASH_OVERFLOW_CAPACITY(*stash1));
 
     // This will trigger an extension of the stash
-    RETURN_IF_ERROR(stash_add_block(stash, &b));
+    RETURN_IF_ERROR(stash_add_block(stash0, &b0));
+    stash_add_block_jazz(stash1, &b1);
 
     // now remove a block and then confirm that we have room
-    block target = {0}; BLOCK_ID(target) = EMPTY_BLOCK_ID; BLOCK_POSITION(target) = UINT64_MAX;
+    block target0 = {0}; BLOCK_ID(target0) = EMPTY_BLOCK_ID; BLOCK_POSITION(target0) = UINT64_MAX;
+    block target1 = {0}; BLOCK_ID(target1) = EMPTY_BLOCK_ID; BLOCK_POSITION(target1) = UINT64_MAX;
 
     u64 search_block_id = 11;
-    stash_scan_overflow_for_target(stash, search_block_id, &target);
-    TEST_ASSERT(BLOCK_ID(target) == search_block_id);
-    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash); ++i) {
-        TEST_ASSERT(BLOCK_ID(((block*)STASH_BLOCKS(*stash))[i]) != search_block_id);
-    }
-    RETURN_IF_ERROR(stash_add_block(stash, &b));
+    stash_scan_overflow_for_target(stash0, search_block_id, &target0);
+    stash_scan_overflow_for_target(stash1, search_block_id, &target1);
+    TEST_ASSERT(BLOCK_ID(target0) == search_block_id);
+    TEST_ASSERT(BLOCK_ID(target1) == search_block_id);
 
-    stash_destroy(stash);
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash0); ++i) {
+        TEST_ASSERT(BLOCK_ID(((block*)STASH_BLOCKS(*stash0))[i]) != search_block_id);
+    }
+    RETURN_IF_ERROR(stash_add_block(stash0, &b0));
+    for(size_t i = 0; i < STASH_OVERFLOW_CAPACITY(*stash1); ++i) {
+        TEST_ASSERT(BLOCK_ID(((block*)STASH_BLOCKS(*stash1))[i]) != search_block_id);
+    }
+    stash_add_block_jazz(stash1, &b1);
+
+    stash_destroy(stash0);
+    stash_destroy(stash1);
     return 0;
 }
 
