@@ -11,7 +11,7 @@ param int BLOCK_DATA_SIZE = (BLOCK_DATA_SIZE_QWORDS * 8);
 
 // oram size definition
 param int ORAM_CAPACITY = 1<<20;
-param int STASH_OVERFLOW_SIZE = 100;
+param int STASH_OVERFLOW_SIZE = 20;
 
 
 // modify only if size definitions were modified

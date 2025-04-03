@@ -28,8 +28,9 @@ fn _stash_extend_overflow(
 )
 {
   reg u64 old_num_blocks new_num_blocks;
-  reg u64 addr old_len new_len flags new_addr prot fd offset;
+  reg u64 addr old_len new_len flags new_addr prot fd offset err tmp;
   reg u64 blocks bucket_assignments;
+  stack u64 blocks_s;
   inline int i;
 
   old_num_blocks = [stash + 8 * NUM_BLOCKS_ADDR];
@@ -37,15 +38,19 @@ fn _stash_extend_overflow(
 
   // (re)allocate new space, free the old
   blocks = [stash];
-  old_len = old_num_blocks * DECRYPTED_BLOCK_SIZE_QWORDS;
-  new_len = new_num_blocks * DECRYPTED_BLOCK_SIZE_QWORDS;
+  old_len = old_num_blocks * DECRYPTED_BLOCK_SIZE;
+  new_len = new_num_blocks * DECRYPTED_BLOCK_SIZE;
   flags = 1;
-  new_addr = #mremap(blocks, old_len, new_len, flags);
+  new_addr = 0;
+  blocks = blocks;
+  new_addr = #mremap(blocks, old_len, new_len, flags, new_addr);
+  [stash] = new_addr;
+  blocks_s = new_addr;
 
   // free bucket_assignments
   bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
   old_len = old_num_blocks * 8;
-  () = #munmap(bucket_assignments, old_len);
+  err = #munmap(bucket_assignments, old_len);
 
   // mmap memory for bucket_assignments
   addr = 0;
@@ -54,14 +59,18 @@ fn _stash_extend_overflow(
   flags = 0x2 | 0x20; // MAP_PRIVATE | MAP_ANONYMOUS
   fd = -1;
   offset = 0;
-  [stash + 8 * BUCKET_ASSIGNMENTS_ADDR] = #mmap(addr, new_len, prot, flags, fd, offset);
+  new_addr = #mmap(addr, new_len, prot, flags, fd, offset);
+  [stash + 8 * BUCKET_ASSIGNMENTS_ADDR] = new_addr;
 
   // update our alias pointers
+  blocks = blocks_s;
+  tmp = #LEA(blocks + PATH_LENGTH * BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE);
   [stash + 8 * PATH_BLOCKS_ADDR] = blocks;
-  [stash + 8 * OVERFLOW_BLOCKS_ADDR] = blocks + PATH_LENGTH * BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS;
+  [stash + 8 * OVERFLOW_BLOCKS_ADDR] = tmp;
 
   // initialize new memory
-  blocks = #LEA(blocks + old_num_blocks * DECRYPTED_BLOCK_SIZE_QWORDS);
+  old_num_blocks *= DECRYPTED_BLOCK_SIZE;
+  blocks = #LEA(blocks + old_num_blocks);
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * STASH_GROWTH_INCREMENT
   {
     [blocks + 8 * i] = -1;
@@ -309,22 +318,25 @@ fn stash_add_block(
   overflow_capacity = [stash + 8 * OVERFLOW_CAPACITY_ADDR];
 
   c1 = 0; // inserted
-  i = 0;
-  while (i < overflow_capacity)
-  {
-    bid = [overflow_blocks];
-    // cond
-    c1 = !c1;
-    b = bid == EMPTY_BLOCK_ID;
-    c2 = #SETcc(b);
-    c2 &= c1;
-    _cond_copy_block(c2, overflow_blocks, new_block);
-    c1 = !c1;
-    c1 |= c2;
-    i += 1;
-    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  while {
+    i = 0;
+    while (i < overflow_capacity)
+    {
+      bid = [overflow_blocks];
+      // cond
+      c1 = !c1;
+      b = bid == EMPTY_BLOCK_ID;
+      c2 = #SETcc(b);
+      c2 &= c1;
+      _cond_copy_block(c2, overflow_blocks, new_block);
+      c1 = !c1;
+      c1 |= c2;
+      i += 1;
+      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+    }
+  } (c1 == 0) { // !inserted
+    _stash_extend_overflow(stash);
   }
-  // TODO: implement extend overflow and insert
 }
 
 inline
