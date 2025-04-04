@@ -45,6 +45,8 @@ fn stash_add_block_jazz(
   reg u64 stash new_block
 )
 {
+  stash = stash;
+  new_block = new_block;
   stash_add_block(stash, new_block);
 }
 
