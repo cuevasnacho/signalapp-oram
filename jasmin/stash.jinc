@@ -373,7 +373,9 @@ fn _i_stash_add_block(
       overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
     }
   } (c1 == 0) { // !inserted
+    () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
     _stash_extend_overflow(stash);
+    () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
   }
 
   return new_block;
@@ -469,7 +471,7 @@ fn _stash_place_empty_blocks(
 )
 {
   // standard variables
-  reg u64 curr_bucket;
+  reg u64 curr_bucket stash_num_blocks;
   // pointer variables
   reg u64 blocks bucket_occupancy bucket_assignments;
   // temporary variables
@@ -482,9 +484,10 @@ fn _stash_place_empty_blocks(
   blocks = (64u)[stash];
   bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
   bucket_assignments = (64u)[stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  stash_num_blocks = (64u)[stash + 8 * NUM_BLOCKS_ADDR];
   curr_bucket = #set0();
   i = 0;
-  while (i < STASH_NUM_BLOCKS)
+  while (i < stash_num_blocks)
   {
     c1 = 0; // found_curr_bucket
     for j = 0 to PATH_LENGTH
@@ -530,7 +533,7 @@ fn _stash_assign_buckets(
 )
 {
   // standard variables
-  reg u64 ub;
+  reg u64 ub stash_num_blocks;
   // pointer variables
   reg u64 bucket_assignments bucket_occupancy;
   // temporary variables
@@ -538,8 +541,10 @@ fn _stash_assign_buckets(
   inline int i lvl;
 
   // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
+  stash_num_blocks = (64u)[stash + 8 * NUM_BLOCKS_ADDR];
   bucket_assignments = (64u)[stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
-  for i = 0 to STASH_NUM_BLOCKS { (u64)[bucket_assignments + 8 * i] = (64u)-1; }
+  it = 0;
+  while (it < stash_num_blocks) { (u64)[bucket_assignments + 8 * it] = (64u)-1; it += 1; }
   bucket_occupancy = (64u)[stash + 8 * BUCKET_OCCUPANCY_ADDR];
   for i = 0 to PATH_LENGTH { (u64)[bucket_occupancy + 8 * i] = (64u)0; }
 
@@ -728,12 +733,15 @@ fn stash_clear(
   reg u64 stash
 )
 {
-  reg u64 blocks;
-  inline int i;
+  reg u64 blocks stash_num_blocks i;
 
-  blocks = [stash];
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * STASH_NUM_BLOCKS
+  blocks = (64u)[stash];
+  stash_num_blocks = (64u)[stash + 8 * NUM_BLOCKS_ADDR];
+  stash_num_blocks *= DECRYPTED_BLOCK_SIZE_QWORDS;
+  i = 0;
+  while (i < stash_num_blocks)
   {
     (u64)[blocks + 8 * i] = -1;
+    i += 1;
   }
 }

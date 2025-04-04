@@ -25,14 +25,14 @@ static int test_stash_lifecycle()
 
 static void public_stash_tests()
 {
-    // RUN_TEST(test_cond_cpy_block());
-    // RUN_TEST(test_oblv_sort());
-    // RUN_TEST(test_stash_lifecycle());
-    // RUN_TEST(test_stash_insert_read());
+    RUN_TEST(test_cond_cpy_block());
+    RUN_TEST(test_oblv_sort());
+    RUN_TEST(test_stash_lifecycle());
+    RUN_TEST(test_stash_insert_read());
     RUN_TEST(test_fill_stash());
-    // RUN_TEST(test_load_bucket_path_to_stash(bucket_density_full));
-    // RUN_TEST(test_load_bucket_path_to_stash(bucket_density_dense));
-    // RUN_TEST(test_load_bucket_path_to_stash(bucket_density_sparse));
+    RUN_TEST(test_load_bucket_path_to_stash(bucket_density_full));
+    RUN_TEST(test_load_bucket_path_to_stash(bucket_density_dense));
+    RUN_TEST(test_load_bucket_path_to_stash(bucket_density_sparse));
 }
 
 int main()
