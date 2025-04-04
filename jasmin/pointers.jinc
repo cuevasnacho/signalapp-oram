@@ -51,6 +51,18 @@ fn stash_overflow_blocks(
 }
 
 inline
+fn stash_num_blocks(
+  reg u64 stash,
+  #msf reg u64 msf
+) -> reg u64, #msf reg u64
+{
+  reg u64 p;
+  #declassify p = (64u)[stash + 8 * NUM_BLOCKS_ADDR];
+  p = #protect(p, msf);
+  return p, msf;
+}
+
+inline
 fn stash_overflow_capacity(
   reg u64 stash,
   #msf reg u64 msf

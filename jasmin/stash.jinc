@@ -2,6 +2,68 @@ require "consts.jinc"
 require "util.jinc"
 require "bucket.jinc"
 
+inline
+fn _stash_extend_overflow(
+  reg u64 stash
+)
+{
+  reg u64 old_num_blocks new_num_blocks;
+  reg u64 addr old_len new_len flags new_addr prot fd offset err tmp;
+  reg u64 blocks bucket_assignments;
+  stack u64 blocks_s;
+  inline int i;
+
+  old_num_blocks = [stash + 8 * NUM_BLOCKS_ADDR];
+  new_num_blocks = #LEA(old_num_blocks + STASH_GROWTH_INCREMENT);
+
+  // (re)allocate new space, free the old
+  blocks = [stash];
+  old_len = old_num_blocks * DECRYPTED_BLOCK_SIZE;
+  () = #spill(old_num_blocks);
+  new_len = new_num_blocks * DECRYPTED_BLOCK_SIZE;
+  flags = 1;
+  new_addr = 0;
+  blocks = blocks;
+  new_addr = #mremap(blocks, old_len, new_len, flags, new_addr);
+  [stash] = new_addr;
+  blocks_s = new_addr;
+
+  // free bucket_assignments
+  bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
+  () = #unspill(old_num_blocks);
+  old_len = old_num_blocks * 8;
+  err = #munmap(bucket_assignments, old_len);
+
+  // mmap memory for bucket_assignments
+  addr = 0;
+  new_len = new_num_blocks * 8;
+  prot = 0x1 | 0x2;   // PROT_READ | PROT_WRITE
+  flags = 0x2 | 0x20; // MAP_PRIVATE | MAP_ANONYMOUS
+  fd = -1;
+  offset = 0;
+  new_addr = #mmap(addr, new_len, prot, flags, fd, offset);
+  [stash + 8 * BUCKET_ASSIGNMENTS_ADDR] = new_addr;
+
+  // update our alias pointers
+  blocks = blocks_s;
+  tmp = #LEA(blocks + PATH_LENGTH * BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE);
+  [stash + 8 * PATH_BLOCKS_ADDR] = blocks;
+  [stash + 8 * OVERFLOW_BLOCKS_ADDR] = tmp;
+
+  // initialize new memory
+  () = #unspill(old_num_blocks);
+  old_num_blocks *= DECRYPTED_BLOCK_SIZE;
+  blocks = #LEA(blocks + old_num_blocks);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * STASH_GROWTH_INCREMENT
+  {
+    [blocks + 8 * i] = -1;
+  }
+
+  // update counts
+  [stash + 8 * NUM_BLOCKS_ADDR] = new_num_blocks;
+  [stash + 8 * OVERFLOW_CAPACITY_ADDR] += STASH_GROWTH_INCREMENT;
+}
+
 // returns the index of the last nonempty blocks in overflow
 fn _stash_overflow_ub(
   reg u64 stash,
@@ -239,22 +301,25 @@ fn stash_add_block(
   overflow_capacity, msf = stash_overflow_capacity(stash, msf);
 
   c1 = 0; // inserted
-  i = 0;
-  while (i < overflow_capacity)
-  {
-    bid = [overflow_blocks];
-    // cond
-    c1 = !c1;
-    b = bid == EMPTY_BLOCK_ID;
-    c2 = #SETcc(b);
-    c2 &= c1;
-    _cond_copy_block(c2, overflow_blocks, new_block);
-    c1 = !c1;
-    c1 |= c2;
-    i += 1;
-    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  while {
+    i = 0;
+    while (i < overflow_capacity)
+    {
+      bid = [overflow_blocks];
+      // cond
+      c1 = !c1;
+      b = bid == EMPTY_BLOCK_ID;
+      c2 = #SETcc(b);
+      c2 &= c1;
+      _cond_copy_block(c2, overflow_blocks, new_block);
+      c1 = !c1;
+      c1 |= c2;
+      i += 1;
+      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+    }
+  } (c1 == 0) {
+    _stash_extend_overflow(stash);
   }
-  // TODO: implement extend overflow and insert
   return msf;
 }
 
@@ -273,23 +338,32 @@ fn _i_stash_add_block(
   overflow_capacity, msf = stash_overflow_capacity(stash, msf);
 
   c1 = 0; // inserted
-  i = 0;
-  while { cond = i < overflow_capacity; } (cond) {
+  while {
+    i = 0;
+    while { cond = i < overflow_capacity; } (cond) {
+      msf = #update_msf(cond, msf);
+      bid = [overflow_blocks];
+      // cond
+      c1 = !c1;
+      b = bid == EMPTY_BLOCK_ID;
+      c2 = #SETcc(b);
+      c2 &= c1;
+      new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+      c1 = !c1;
+      c1 |= c2;
+      i += 1;
+      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+    }
+    msf = #update_msf(!cond, msf);
+    cond = c1 == 0;
+  } (cond) { // !inserted
     msf = #update_msf(cond, msf);
-    bid = [overflow_blocks];
-    // cond
-    c1 = !c1;
-    b = bid == EMPTY_BLOCK_ID;
-    c2 = #SETcc(b);
-    c2 &= c1;
-    new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-    c1 = !c1;
-    c1 |= c2;
-    i += 1;
-    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+    () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
+    _stash_extend_overflow(stash);
+    msf = #init_msf();
+    () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
   }
   msf = #update_msf(!cond, msf);
-  // TODO: implement extend overflow and insert
   return new_block, msf;
 }
 
@@ -478,7 +552,7 @@ fn _stash_place_empty_blocks(
 ) -> #msf reg u64
 {
   // standard variables
-  reg u64 curr_bucket;
+  reg u64 curr_bucket num_blocks;
   // pointer variables
   reg u64 blocks bucket_occupancy bucket_assignments;
   // temporary variables
@@ -491,9 +565,10 @@ fn _stash_place_empty_blocks(
   blocks, msf = stash_blocks(stash, msf);
   bucket_occupancy, msf = stash_bucket_occupancy(stash, msf);
   bucket_assignments, msf = stash_bucket_assignments(stash, msf);
+  num_blocks, msf = stash_num_blocks(stash, msf);
   curr_bucket = #set0();
   i = 0;
-  while { cond = i < STASH_NUM_BLOCKS; } (cond) {
+  while { cond = i < num_blocks; } (cond) {
     msf = #update_msf(cond, msf);
     c1 = 0; // found_curr_bucket
     for j = 0 to PATH_LENGTH
@@ -543,7 +618,7 @@ fn _stash_assign_buckets(
 ) -> #msf reg u64
 {
   // standard variables
-  reg u64 ub;
+  reg u64 ub num_blocks;
   // pointer variables
   reg u64 bucket_assignments bucket_occupancy;
   // temporary variables
@@ -553,7 +628,10 @@ fn _stash_assign_buckets(
 
   // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
   bucket_assignments, msf = stash_bucket_assignments(stash, msf);
-  for i = 0 to STASH_NUM_BLOCKS { (u64)[bucket_assignments + 8 * i] = (64u)-1; }
+  num_blocks, msf = stash_num_blocks(stash, msf);
+
+  it = 0;
+  while (it < num_blocks) { (u64)[bucket_assignments + 8 * it] = (64u)-1; it += 1; }
   bucket_occupancy, msf = stash_bucket_occupancy(stash, msf);
   for i = 0 to PATH_LENGTH { (u64)[bucket_occupancy + 8 * i] = (64u)0; }
 
@@ -788,13 +866,16 @@ fn stash_clear(
   #msf reg u64 msf
 ) -> #msf reg u64
 {
-  reg u64 blocks;
-  inline int i;
+  reg u64 blocks num_blocks i;
 
   blocks, msf = stash_blocks(stash, msf);
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * STASH_NUM_BLOCKS
+  num_blocks, msf = stash_num_blocks(stash, msf);
+  num_blocks *= DECRYPTED_BLOCK_SIZE_QWORDS;
+  i = 0;
+  while (i < num_blocks)
   {
     (u64)[blocks + 8 * i] = -1;
+    i += 1;
   }
 
   return msf;

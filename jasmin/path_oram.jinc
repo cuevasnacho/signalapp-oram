@@ -27,10 +27,13 @@ fn _random_mod_by_pow_of_2(
 {
   stack u8[8] random;
   reg ptr u8[8] randomp;
-  reg u64 r;
+  reg u64 r flag num_bytes;
 
+  while {
+    flag = 0;
+    random, num_bytes = #randombytes(random, flag);
+  } (num_bytes != 8)
   randomp = random;
-  randomp = #randombytes(randomp);
   r = randomp[u64 0];
   modulus -= 1;
   r &= modulus;
@@ -184,9 +187,7 @@ fn _oram_access_read(
   // standard variables
   reg u64 max_position new_position x;
   // pointer variables
-  reg u64 stash position_map bucket_store path_blocks;
-  // spill_to_mmx
-  #spill_to_mmx reg u64 path;
+  reg u64 stash position_map bucket_store path_blocks path;
   // temporary variables
   reg u64 bucket_id;
   inline int i offset;
@@ -224,6 +225,7 @@ fn _oram_access_read(
   target_block, msf = _i_stash_add_block(stash, target_block, msf);
 
   () = #unspill(path);
+  path = #protect(path, msf);
   msf = stash_build_path(stash, path, msf);
   () = #unspill(oram);
   oram = #protect(oram, msf);
@@ -252,9 +254,7 @@ fn _oram_access_write(
   // standard variables
   reg u64 max_position new_position x;
   // pointer variables
-  reg u64 stash position_map bucket_store path_blocks;
-  // spill_to_mmx
-  #spill_to_mmx reg u64 path;
+  reg u64 stash position_map bucket_store path_blocks path;
   // temporary variables
   reg u64 bucket_id;
   inline int i offset;
@@ -292,6 +292,7 @@ fn _oram_access_write(
   target_block, msf = _i_stash_add_block(stash, target_block, msf);
 
   () = #unspill(path);
+  path = #protect(path, msf);
   msf = stash_build_path(stash, path, msf);
   () = #unspill(oram);
   oram = #protect(oram, msf);
