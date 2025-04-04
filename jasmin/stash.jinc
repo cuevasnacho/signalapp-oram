@@ -373,7 +373,9 @@ fn _i_stash_add_block(
       overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
     }
   } (c1 == 0) { // !inserted
+    () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
     _stash_extend_overflow(stash);
+    () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
   }
 
   return new_block;

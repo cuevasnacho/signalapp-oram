@@ -21,10 +21,13 @@ fn _random_mod_by_pow_of_2(
 {
   stack u8[8] random;
   reg ptr u8[8] randomp;
-  reg u64 r;
+  reg u64 r flag num_bytes;
 
+  while {
+    flag = 0;
+    random, num_bytes = #randombytes(random, flag);
+  } (num_bytes != 8)
   randomp = random;
-  randomp = #randombytes(randomp);
   r = randomp[u64 0];
   modulus -= 1;
   r &= modulus;
@@ -272,13 +275,16 @@ fn _oram_access_read(
 
   target_block = target_block_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
+  () = #spill(oram, block_id, target_block, out_data);
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
   new_position = _random_mod_by_pow_of_2(max_position);
   position_map = [oram + 8 * POSITION_MAP_ADDR];
+  () = #spill(new_position);
   x = position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
 
+  () = #unspill(oram, block_id, new_position, target_block, out_data);
   path = [oram + 8 * PATH_ADDR];
   tree_path_update(path, x);
 
@@ -325,13 +331,16 @@ fn _oram_access_write(
 
   target_block = target_block_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
+  () = #spill(oram, block_id, target_block, in_data);
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
   new_position = _random_mod_by_pow_of_2(max_position);
   position_map = [oram + 8 * POSITION_MAP_ADDR];
+  () = #spill(new_position);
   x = position_map_read_then_set(position_map, block_id, new_position);
   x *= 2;
 
+  () = #unspill(oram, block_id, new_position, target_block, in_data);
   path = [oram + 8 * PATH_ADDR];
   tree_path_update(path, x);
 
