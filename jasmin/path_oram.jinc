@@ -97,12 +97,12 @@ fn _read_accessor(
   reg u64 out_data
 )
 {
-  reg u64 r64;
+  reg u256 r;
   inline int i;
-  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS / 4
   {
-    r64 = (64u)[block_data + 8 * i];
-    (u64)[out_data + 8 * i] = r64;
+    r = (u256)[block_data + 32 * i];
+    (u256)[out_data + 32 * i] = r;
   }
 }
 
@@ -112,12 +112,12 @@ fn _i_read_accessor(
   reg u64 out_data
 ) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
 {
-  reg u64 r64;
+  reg u256 r;
   inline int i;
-  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS / 4
   {
-    r64 = block_data[u64 i];
-    (u64)[out_data + 8 * i] = r64;
+    r = block_data.[u256 32*i];
+    (u256)[out_data + 32 * i] = r;
   }
   return block_data;
 }
@@ -128,13 +128,13 @@ fn _write_accessor_full(
   reg u64 in_data
 )
 {
-  reg u64 r64;
+  reg u256 r;
   inline int i;
 
-  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS / 4
   {
-    r64 = (64u)[in_data + 8 * i];
-    (u64)[block_data + 8 * i] = r64;
+    r = (u256)[in_data + 32 * i];
+    (u256)[block_data + 32 * i] = r;
   }
 }
 
@@ -144,13 +144,13 @@ fn _i_write_accessor_full(
   reg u64 in_data
 ) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
 {
-  reg u64 r64;
+  reg u256 r;
   inline int i;
 
-  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS / 4
   {
-    r64 = (64u)[in_data + 8 * i];
-    block_data[u64 i] = r64;
+    r = (u256)[in_data + 32 * i];
+    block_data.[u256 32*i] = r;
   }
   return block_data;
 }
