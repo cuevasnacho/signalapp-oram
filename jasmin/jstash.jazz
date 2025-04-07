@@ -87,8 +87,7 @@ fn cond_swap_blocks_jazz(
 export
 fn odd_even_msort_jazz(
   reg u64 blocks block_level_assignments,
-  reg u64 lb ub,
-  reg u8 direction
+  reg u64 lb ub
 )
 {
   #msf reg u64 msf;
