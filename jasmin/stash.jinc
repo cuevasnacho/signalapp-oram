@@ -4,7 +4,8 @@ require "bucket.jinc"
 
 inline
 fn _stash_extend_overflow(
-  reg u64 stash
+  reg u64 stash,
+  inline int length
 )
 {
   reg u64 old_num_blocks new_num_blocks;
@@ -46,7 +47,7 @@ fn _stash_extend_overflow(
 
   // update our alias pointers
   blocks = blocks_s;
-  tmp = #LEA(blocks + PATH_LENGTH * BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE);
+  tmp = #LEA(blocks + length * BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE);
   [stash + 8 * PATH_BLOCKS_ADDR] = blocks;
   [stash + 8 * OVERFLOW_BLOCKS_ADDR] = tmp;
 
@@ -290,7 +291,8 @@ fn _i_stash_scan_overflow_for_target(
 inline
 fn stash_add_block(
   reg u64 stash new_block,
-  #msf reg u64 msf
+  #msf reg u64 msf,
+  inline int length
 ) -> #msf reg u64
 {
   reg u64 bid overflow_capacity overflow_blocks i;
@@ -318,7 +320,7 @@ fn stash_add_block(
       overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
     }
   } (c1 == 0) {
-    _stash_extend_overflow(stash);
+    _stash_extend_overflow(stash, length);
   }
   return msf;
 }
@@ -327,7 +329,8 @@ inline
 fn _i_stash_add_block(
   reg u64 stash,
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] new_block,
-  #msf reg u64 msf
+  #msf reg u64 msf,
+  inline int length
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS], #msf reg u64
 {
   reg u64 bid overflow_capacity overflow_blocks i;
@@ -359,7 +362,7 @@ fn _i_stash_add_block(
   } (cond) { // !inserted
     msf = #update_msf(cond, msf);
     () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
-    _stash_extend_overflow(stash);
+    _stash_extend_overflow(stash, length);
     msf = #init_msf();
     () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
   }

@@ -2,68 +2,6 @@ require "oram_position_map_1.jinc"
 
 // stash
 inline
-fn __stash_extend_overflow(
-  reg u64 stash
-)
-{
-  reg u64 old_num_blocks new_num_blocks;
-  reg u64 addr old_len new_len flags new_addr prot fd offset err tmp;
-  reg u64 blocks bucket_assignments;
-  stack u64 blocks_s;
-  inline int i;
-
-  old_num_blocks = [stash + 8 * NUM_BLOCKS_ADDR];
-  new_num_blocks = #LEA(old_num_blocks + STASH_GROWTH_INCREMENT);
-
-  // (re)allocate new space, free the old
-  blocks = [stash];
-  old_len = old_num_blocks * DECRYPTED_BLOCK_SIZE;
-  () = #spill(old_num_blocks);
-  new_len = new_num_blocks * DECRYPTED_BLOCK_SIZE;
-  flags = 1;
-  new_addr = 0;
-  blocks = blocks;
-  new_addr = #mremap(blocks, old_len, new_len, flags, new_addr);
-  [stash] = new_addr;
-  blocks_s = new_addr;
-
-  // free bucket_assignments
-  bucket_assignments = [stash + 8 * BUCKET_ASSIGNMENTS_ADDR];
-  () = #unspill(old_num_blocks);
-  old_len = old_num_blocks * 8;
-  err = #munmap(bucket_assignments, old_len);
-
-  // mmap memory for bucket_assignments
-  addr = 0;
-  new_len = new_num_blocks * 8;
-  prot = 0x1 | 0x2;   // PROT_READ | PROT_WRITE
-  flags = 0x2 | 0x20; // MAP_PRIVATE | MAP_ANONYMOUS
-  fd = -1;
-  offset = 0;
-  new_addr = #mmap(addr, new_len, prot, flags, fd, offset);
-  [stash + 8 * BUCKET_ASSIGNMENTS_ADDR] = new_addr;
-
-  // update our alias pointers
-  blocks = blocks_s;
-  tmp = #LEA(blocks + PATH_LENGTH_0 * BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE);
-  [stash + 8 * PATH_BLOCKS_ADDR] = blocks;
-  [stash + 8 * OVERFLOW_BLOCKS_ADDR] = tmp;
-
-  // initialize new memory
-  () = #unspill(old_num_blocks);
-  old_num_blocks *= DECRYPTED_BLOCK_SIZE;
-  blocks = #LEA(blocks + old_num_blocks);
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * STASH_GROWTH_INCREMENT
-  {
-    [blocks + 8 * i] = -1;
-  }
-
-  // update counts
-  [stash + 8 * NUM_BLOCKS_ADDR] = new_num_blocks;
-  [stash + 8 * OVERFLOW_CAPACITY_ADDR] += STASH_GROWTH_INCREMENT;
-}
-
-inline
 fn __stash_assign_block_to_bucket_overflow(
   #spill_to_mmx reg u64 stash path,
   reg u64 index,
@@ -362,7 +300,7 @@ fn __oram_get(
   () = #unspill(oram);
   stash, msf = oram_stash(oram, msf);
   () = #spill(oram);
-  target_block, msf = _i_stash_add_block(stash, target_block, msf);
+  target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH_0);
 
   () = #unspill(path);
   msf = __stash_build_path(stash, path, msf);
@@ -429,7 +367,7 @@ fn __oram_put(
   () = #unspill(oram);
   stash, msf = oram_stash(oram, msf);
   () = #spill(oram);
-  target_block, msf = _i_stash_add_block(stash, target_block, msf);
+  target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH_0);
 
   () = #unspill(path);
   msf = __stash_build_path(stash, path, msf);
@@ -499,7 +437,7 @@ fn __i_oram_put(
   oram = #protect(oram, msf);
   stash, msf = oram_stash(oram, msf);
   () = #spill(oram);
-  target_block, msf = _i_stash_add_block(stash, target_block, msf);
+  target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH_0);
 
   () = #unspill(path);
   path = #protect(path, msf);

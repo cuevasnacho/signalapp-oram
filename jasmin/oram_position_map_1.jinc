@@ -421,7 +421,7 @@ fn __oram_put_1(
   oram = #protect(oram, msf);
   stash, msf = oram_stash(oram, msf);
   () = #spill(oram);
-  target_block, msf = _i_stash_add_block(stash, target_block, msf);
+  target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH_1);
 
   () = #unspill(path);
   path = #protect(path, msf);
