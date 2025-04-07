@@ -112,3 +112,22 @@ fn _ct_mod(
   n -= q;
   return n;
 }
+
+inline
+fn _random_mod_by_pow_of_2(
+  inline int modulus
+) -> reg u64
+{
+  stack u8[8] random;
+  reg ptr u8[8] randomp;
+  reg u64 r flag num_bytes;
+
+  while {
+    flag = 0;
+    random, num_bytes = #randombytes(random, flag);
+  } (num_bytes != 8)
+  randomp = random;
+  r = randomp[u64 0];
+  r &= (modulus - 1);
+  return r;
+}

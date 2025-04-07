@@ -20,26 +20,6 @@ fn oram_clear(
   return msf;
 }
 
-inline
-fn _random_mod_by_pow_of_2(
-  reg u64 modulus
-) -> reg u64
-{
-  stack u8[8] random;
-  reg ptr u8[8] randomp;
-  reg u64 r flag num_bytes;
-
-  while {
-    flag = 0;
-    random, num_bytes = #randombytes(random, flag);
-  } (num_bytes != 8)
-  randomp = random;
-  r = randomp[u64 0];
-  modulus -= 1;
-  r &= modulus;
-  return r;
-}
-
 /**
  * @brief read the path from the bucket store, performing the same sequence of instructions independent of the input.
  * Post-condition: the block with `id == target_block_id` will *not* be in the stash - neither the overflow or the path stash.
@@ -185,12 +165,12 @@ fn _oram_access_read(
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block;
   // standard variables
-  reg u64 max_position new_position x;
+  reg u64 new_position x;
   // pointer variables
   reg u64 stash position_map bucket_store path_blocks path;
   // temporary variables
   reg u64 bucket_id;
-  inline int i offset;
+  inline int i max_position offset;
   // msf
   #msf reg u64 msf;
 
@@ -252,12 +232,12 @@ fn _oram_access_write(
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block;
   // standard variables
-  reg u64 max_position new_position x;
+  reg u64 new_position x;
   // pointer variables
   reg u64 stash position_map bucket_store path_blocks path;
   // temporary variables
   reg u64 bucket_id;
-  inline int i offset;
+  inline int i max_position offset;
   // msf
   #msf reg u64 msf;
 
