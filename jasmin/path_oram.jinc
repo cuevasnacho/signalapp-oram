@@ -206,7 +206,7 @@ fn _oram_access_read(
 
   () = #unspill(path);
   path = #protect(path, msf);
-  msf = stash_build_path(stash, path, msf);
+  msf = stash_build_path(stash, path, msf, PATH_LENGTH);
   () = #unspill(oram);
   oram = #protect(oram, msf);
 
@@ -273,7 +273,7 @@ fn _oram_access_write(
 
   () = #unspill(path);
   path = #protect(path, msf);
-  msf = stash_build_path(stash, path, msf);
+  msf = stash_build_path(stash, path, msf, PATH_LENGTH);
   () = #unspill(oram);
   oram = #protect(oram, msf);
 

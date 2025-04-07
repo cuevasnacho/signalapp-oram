@@ -2,94 +2,6 @@ require "oram_position_map_1.jinc"
 
 // stash
 inline
-fn __stash_assign_block_to_bucket_overflow(
-  #spill_to_mmx reg u64 stash path,
-  reg u64 index,
-  #msf reg u64 msf
-) -> #msf reg u64
-{
-  // spill_to_mmx variables
-  #spill_to_mmx reg u64 assignment_index bucket_assignments bid bpos;
-  // pointer variables
-  reg u64 path_blocks bucket_occupancy;
-  // temporary variables
-  reg u64 r1 r2 bucket_id tree_bound tmp;
-  // boolean variables
-  reg u8 c1 c2 c3;
-  reg bool b;
-  inline int lvl max_level;
-  
-  // the block cannot be assigned to this level or higher
-  max_level = (64u)PATH_LENGTH_0;
-  assignment_index = #LEA(BLOCKS_PER_BUCKET * PATH_LENGTH_0 + index);
-
-  path_blocks, msf = stash_path_blocks(stash, msf);
-  tmp = assignment_index;
-  tmp *= 8 * DECRYPTED_BLOCK_SIZE_QWORDS;
-  bid = (64u)[path_blocks + tmp];
-  bid = #protect(bid, msf);
-  () = #spill(bid);
-  bpos = (64u)[path_blocks + tmp + 8];
-  bpos = #protect(bpos, msf);
-  () = #spill(bpos);
-
-  bucket_occupancy, msf = stash_bucket_occupancy(stash, msf);
-  bucket_assignments, msf = stash_bucket_assignments(stash, msf);
-  () = #spill(path, assignment_index, bucket_assignments);
-
-  c1 = #set0_8(); // is_assigned
-  for lvl = 0 to max_level {
-    r2 = (64u)[bucket_occupancy + 8 * lvl];
-    r2 = #protect(r2, msf);
-    () = #unspill(path);
-    bucket_id = (64u)[path + 8 + 8 * lvl];
-    bucket_id = #protect(bucket_id, msf);
-
-    c1 = !c1;
-    // is_valid
-    tree_bound = tree_path_lower_bound(bucket_id);
-    () = #unspill(bpos);
-    b = tree_bound <= bpos;
-    c2 = #SETcc(b);
-    c2 &= c1;
-    tree_bound = tree_path_upper_bound(bucket_id);
-    () = #unspill(bpos);
-    b = tree_bound >= bpos;
-    c3 = #SETcc(b);
-    c2 &= c3;
-    // bucket_has_room
-    b = r2 < BLOCKS_PER_BUCKET;
-    c3 = #SETcc(b);
-    c2 &= c3;
-    // not is_empty
-    () = #unspill(bid);
-    b = bid != EMPTY_BLOCK_ID;
-    c3 = #SETcc(b);
-    c2 &= c3;
-    // is_assigned = cond | is_assigned;
-    c1 = !c1;
-    c1 |= c2;
-    b = c2 != 0;
-    
-    // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
-    // for this position.
-    // increment this, it will only get saved if `b` is true.
-    r1 = #LEA(r2 + 1);
-    r1 = #CMOVcc(b, r1, r2);
-    () = #unspill(assignment_index, bucket_assignments);
-    (u64)[bucket_occupancy + 8 * lvl] = r1;
-    r1 = (64u)[bucket_assignments + 8 * assignment_index];
-    r1 = #protect(r1, msf);
-    b = c2 != 0;
-    tmp = lvl;
-    r1 = #CMOVcc(b, tmp, r1);
-    (u64)[bucket_assignments + 8 * assignment_index] = r1;
-  }
-
-  return msf;
-}
-
-inline
 fn __stash_place_empty_blocks(
   reg u64 stash,
   #msf reg u64 msf
@@ -152,76 +64,6 @@ fn __stash_place_empty_blocks(
   }
   msf = #update_msf(!cond, msf);
   // at the end, every bucket should be full
-  return msf;
-}
-
-inline
-fn __stash_assign_buckets(
-  reg u64 stash path,
-  #msf reg u64 msf
-) -> #msf reg u64
-{
-  // standard variables
-  reg u64 ub num_blocks;
-  // pointer variables
-  reg u64 bucket_assignments bucket_occupancy;
-  // temporary variables
-  reg u64 it;
-  reg bool cond;
-  inline int i lvl;
-
-  // assign all blocks to "overflow" - level UINT64_MAX and set all occupancy to 0
-  bucket_assignments, msf = stash_bucket_assignments(stash, msf);
-  num_blocks, msf = stash_num_blocks(stash, msf);
-
-  it = 0;
-  while (it < num_blocks) { (u64)[bucket_assignments + 8 * it] = (64u)-1; it += 1; }
-  bucket_occupancy, msf = stash_bucket_occupancy(stash, msf);
-  for i = 0 to PATH_LENGTH_0 { (u64)[bucket_occupancy + 8 * i] = (64u)0; }
-
-  // assign blocks in path to buckets first
-  for lvl = 0 to PATH_LENGTH_0
-  { for i = 0 to BLOCKS_PER_BUCKET
-    {
-      msf = _stash_assign_block_to_bucket_path(stash, path, lvl * BLOCKS_PER_BUCKET + i, msf);
-    }
-  }
-
-  // assign blocks in overflow to buckets
-  ub, msf = _stash_overflow_ub(stash, msf);
-  it = 0;
-  while { cond = it < ub; } (cond) {
-    msf = #update_msf(cond, msf);
-    msf = __stash_assign_block_to_bucket_overflow(stash, path, it, msf);
-    it = #LEA(it + 1);
-  }
-  msf = #update_msf(!cond, msf);
-
-  // now assign empty blocks to fill the buckets
-  msf = __stash_place_empty_blocks(stash, msf);
-
-  return msf;
-}
-
-inline
-fn __stash_build_path(
-  reg u64 stash path,
-  #msf reg u64 msf
-) -> #msf reg u64
-{
-  reg u64 overflow_size;
-  reg u64 blocks bucket_assignments;
-
-  msf = __stash_assign_buckets(stash, path, msf);
-
-  blocks, msf = stash_blocks(stash, msf);
-  overflow_size, msf = _stash_overflow_ub(stash, msf);
-  overflow_size = #LEA(overflow_size + PATH_LENGTH_0 * BLOCKS_PER_BUCKET);
-
-  bucket_assignments, msf = stash_bucket_assignments(stash, msf);
-
-  msf = _odd_even_msort(blocks, bucket_assignments, 0, overflow_size, msf);
-
   return msf;
 }
 
@@ -303,7 +145,7 @@ fn __oram_get(
   target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH_0);
 
   () = #unspill(path);
-  msf = __stash_build_path(stash, path, msf);
+  msf = stash_build_path(stash, path, msf, PATH_LENGTH_0);
   () = #unspill(oram);
 
   bucket_store, msf = oram_bucket_store(oram, msf);
@@ -370,7 +212,7 @@ fn __oram_put(
   target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH_0);
 
   () = #unspill(path);
-  msf = __stash_build_path(stash, path, msf);
+  msf = stash_build_path(stash, path, msf, PATH_LENGTH_0);
   () = #unspill(oram);
 
   bucket_store, msf = oram_bucket_store(oram, msf);
@@ -441,7 +283,7 @@ fn __i_oram_put(
 
   () = #unspill(path);
   path = #protect(path, msf);
-  msf = __stash_build_path(stash, path, msf);
+  msf = stash_build_path(stash, path, msf, PATH_LENGTH_0);
   () = #unspill(oram);
   oram = #protect(oram, msf);
 
