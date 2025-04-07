@@ -1,7 +1,6 @@
 require "oram_position_map_1.jinc"
 
-////////////////////////////////////////////////////////////////////
-// tree path implementation
+// tree path
 inline
 fn __level(
   reg u64 n
@@ -110,9 +109,7 @@ fn __tree_path_level(
   return l;
 }
 
-////////////////////////////////////////////////////////////////////
-// bucket implementation
-
+// bucket
 fn __bucket_store_read_bucket_blocks(
   reg u64 bucket_store,
   reg u64 bucket_id,
@@ -159,8 +156,7 @@ fn __bucket_store_write_bucket_blocks(
   return msf;
 }
 
-////////////////////////////////////////////////////////////////////
-// stash implementation
+// stash
 inline
 fn __stash_extend_overflow(
   reg u64 stash
@@ -904,9 +900,7 @@ fn __stash_build_path(
   return msf;
 }
 
-////////////////////////////////////////////////////////////////////
-// oram implementation
-
+// oram
 inline
 fn __random_mod_by_pow_of_2(
   reg u64 modulus
@@ -1228,8 +1222,8 @@ fn __i_oram_put(
   () = #unspill(prev_data);
   return prev_data, msf;
 }
-////////////////////////////////////////////////////////////////////
 
+// position map
 inline
 fn block_id_for_index_ct(
   reg u64 oram_position_map,

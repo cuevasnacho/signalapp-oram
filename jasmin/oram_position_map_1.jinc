@@ -51,8 +51,7 @@ fn __position_map_read_then_set_linear(
   return x, msf;
 }
 
-////////////////////////////////////////////////////////////////////
-// tree path implementation
+// tree path
 inline
 fn __level_1(
   reg u64 n
@@ -161,8 +160,7 @@ fn __tree_path_level_1(
   return l;
 }
 
-////////////////////////////////////////////////////////////////////
-// bucket implementation
+// bucket
 fn __bucket_store_read_bucket_blocks_1(
   reg u64 bucket_store,
   reg u64 bucket_id,
@@ -207,8 +205,7 @@ fn __bucket_store_write_bucket_blocks_1(
   return msf;
 }
 
-////////////////////////////////////////////////////////////////////
-// stash implementation
+// stash
 inline
 fn __stash_extend_overflow_1(
   reg u64 stash
@@ -948,8 +945,7 @@ fn __stash_build_path_1(
   return msf;
 }
 
-////////////////////////////////////////////////////////////////////
-// oram implementation
+// oram
 inline
 fn __random_mod_by_pow_of_2_1(
   inline int modulus
@@ -1113,8 +1109,8 @@ fn __oram_put_1(
   () = #unspill(prev_data);
   return prev_data, msf;
 }
-////////////////////////////////////////////////////////////////////
 
+// position map
 inline
 fn block_id_for_index_ct_1(
   reg u64 oram_position_map,
