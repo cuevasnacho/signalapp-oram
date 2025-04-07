@@ -191,7 +191,7 @@ fn _oram_access_read(
   x *= 2;
 
   path, msf = oram_path(oram, msf);
-  tree_path_update(path, x);
+  tree_path_update(path, x, PATH_LENGTH);
 
   new_position *= 2;
   target_block, msf = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
@@ -258,7 +258,7 @@ fn _oram_access_write(
   x *= 2;
 
   path, msf = oram_path(oram, msf);
-  tree_path_update(path, x);
+  tree_path_update(path, x, PATH_LENGTH);
 
   new_position *= 2;
   target_block, msf = _i_oram_read_path_for_block(oram, path, block_id, target_block, new_position, msf);
