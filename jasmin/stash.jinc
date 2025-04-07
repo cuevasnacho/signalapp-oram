@@ -552,7 +552,8 @@ fn _stash_assign_block_to_bucket_overflow(
 inline
 fn _stash_place_empty_blocks(
   reg u64 stash,
-  #msf reg u64 msf
+  #msf reg u64 msf,
+  inline int length
 ) -> #msf reg u64
 {
   // standard variables
@@ -575,7 +576,7 @@ fn _stash_place_empty_blocks(
   while { cond = i < num_blocks; } (cond) {
     msf = #update_msf(cond, msf);
     c1 = 0; // found_curr_bucket
-    for j = 0 to PATH_LENGTH
+    for j = 0 to length
     {
       c1 = !c1;
       // bucket_has_room
@@ -661,7 +662,7 @@ fn _stash_assign_buckets(
   msf = #update_msf(!cond, msf);
 
   // now assign empty blocks to fill the buckets
-  msf = _stash_place_empty_blocks(stash, msf);
+  msf = _stash_place_empty_blocks(stash, msf, length);
 
   return msf;
 }
