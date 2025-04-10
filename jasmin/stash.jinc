@@ -888,16 +888,18 @@ fn stash_clear(
 ) -> #msf reg u64
 {
   reg u64 blocks num_blocks i;
+  reg bool cond;
 
   blocks, msf = stash_blocks(stash, msf);
   num_blocks, msf = stash_num_blocks(stash, msf);
   num_blocks *= DECRYPTED_BLOCK_SIZE_QWORDS;
   i = 0;
-  while (i < num_blocks)
-  {
+  while { cond = i < num_blocks; } (cond) {
+    msf = #update_msf(cond, msf);
     (u64)[blocks + 8 * i] = -1;
     i += 1;
   }
+  msf = #update_msf(!cond, msf);
 
   return msf;
 }
