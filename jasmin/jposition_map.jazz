@@ -1,3 +1,5 @@
+require "tree_path.jinc"
+require "stash.jinc"
 require "position_map.jinc"
 
 export

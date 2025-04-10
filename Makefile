@@ -1,4 +1,4 @@
-JC ?= /home/mpi-sp-it/Desktop/icuevas/jasmin/jasmin-2025.02.0/compiler/jasminc
+JC ?= jasminc
 CC ?= gcc
 MAKE ?= make
 
