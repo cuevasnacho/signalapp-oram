@@ -164,7 +164,8 @@ inline
 fn _oram_access_read(
   reg u64 oram,
   #secret reg u64 block_id,
-  reg u64 out_data
+  reg u64 out_data,
+  #msf reg u64 msf
 )
 {
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
@@ -176,16 +177,13 @@ fn _oram_access_read(
   // temporary variables
   reg u64 bucket_id;
   inline int i max_position offset;
-  // msf
-  #msf reg u64 msf;
 
   () = #spill(out_data);
   target_block = target_block_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
-  new_position = _random_mod_by_pow_of_2(max_position);
-  msf = #init_msf();
+  new_position, msf = _random_mod_by_pow_of_2(msf, max_position);
 
   position_map, msf = oram_position_map(oram, msf);
   () = #spill(oram, block_id, new_position, out_data, target_block);
@@ -234,7 +232,8 @@ inline
 fn _oram_access_write(
   #public reg u64 oram,
   #secret reg u64 block_id,
-  #public reg u64 in_data
+  #public reg u64 in_data,
+  #msf reg u64 msf
 )
 {
   stack u64[DECRYPTED_BLOCK_SIZE_QWORDS] target_block_s;
@@ -246,16 +245,13 @@ fn _oram_access_write(
   // temporary variables
   reg u64 bucket_id;
   inline int i max_position offset;
-  // msf
-  #msf reg u64 msf;
 
   () = #spill(in_data);
   target_block = target_block_s;
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH - 1));
 
-  new_position = _random_mod_by_pow_of_2(max_position);
-  msf = #init_msf();
+  new_position, msf = _random_mod_by_pow_of_2(msf, max_position);
 
   position_map, msf = oram_position_map(oram, msf);
   () = #spill(oram, block_id, new_position, in_data, target_block);

@@ -115,8 +115,9 @@ fn _ct_mod(
 
 inline
 fn _random_mod_by_pow_of_2(
+  #msf reg u64 msf,
   inline int modulus
-) -> reg u64
+) -> reg u64, #msf reg u64
 {
   stack u8[8] random;
   reg ptr u8[8] randomp;
@@ -129,5 +130,6 @@ fn _random_mod_by_pow_of_2(
   randomp = random;
   r = randomp[u64 0];
   r &= (modulus - 1);
-  return r;
+  msf = #init_msf();
+  return r, msf;
 }

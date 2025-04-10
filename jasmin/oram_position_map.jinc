@@ -58,8 +58,7 @@ fn __oram_get(
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH_0 - 1));
 
-  new_position = _random_mod_by_pow_of_2(max_position);
-  msf = #init_msf();
+  new_position, msf = _random_mod_by_pow_of_2(msf, max_position);
 
   position_map, msf = oram_position_map(oram, msf);
   () = #spill(oram, target_block, block_id, new_position);
@@ -123,8 +122,7 @@ fn __oram_put(
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH_0 - 1));
 
-  new_position = _random_mod_by_pow_of_2(max_position);
-  msf = #init_msf();
+  new_position, msf = _random_mod_by_pow_of_2(msf, max_position);
   new_position = new_position;
 
   position_map, msf = oram_position_map(oram, msf);
@@ -189,8 +187,7 @@ fn __i_oram_put(
   for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS { target_block[i] = -1; }
   max_position = (64u)(1 << (PATH_LENGTH_0 - 1));
 
-  new_position = _random_mod_by_pow_of_2(max_position);
-  msf = #init_msf();
+  new_position, msf = _random_mod_by_pow_of_2(msf, max_position);
   new_position = new_position;
 
   position_map, msf = oram_position_map(oram, msf);
@@ -307,6 +304,7 @@ fn _i_oram_position_map_set(
 
   bid_for_index = block_id_for_index_ct(oram_position_map, block_id);
   #declassify position_map = (64u)[oram_position_map + 8];
+  position_map = #protect(position_map, msf);
 
   prev_position, msf = __i_oram_put(position_map, bid_for_index, idx_in_block, position, msf);
 
