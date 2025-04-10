@@ -73,16 +73,21 @@ fn _i_oram_read_path_for_block(
   reg u64 stash bucket_store value;
   inline int i;
 
-  () = #spill(new_position);
+  () = #spill(new_position, path);
   stash, msf = oram_stash(oram, msf);
   bucket_store, msf = oram_bucket_store(oram, msf);
   for i = 0 to PATH_LENGTH
   {
+    () = #unspill(path);
+    path = #protect(path, msf);
     #declassify value = (64u)[path + 8 + 8 * i];  //! if value is secret we cannot read in _i_stash_add_path_bucket:205
+    () = #spill(path);
     value = #protect(value, msf);
-    target, msf = _i_stash_add_path_bucket(stash, bucket_store, value, target_block_id, target, msf);
+    #update_after_call target, msf = _i_stash_add_path_bucket(stash, bucket_store, value, target_block_id, target, msf);
+    stash = #protect(stash, msf);
+    bucket_store = #protect(bucket_store, msf);
   }
-  target, msf = _i_stash_scan_overflow_for_target(stash, target_block_id, target, msf);
+  #update_after_call target, msf = _i_stash_scan_overflow_for_target(stash, target_block_id, target, msf);
 
   () = #unspill(new_position);
   target[u64 0] = target_block_id;
@@ -217,7 +222,10 @@ fn _oram_access_read(
   {
     #declassify bucket_id = [path + 8 + 8 * i]; //! if bucket_id is secret we cannot use it as an offset
     bucket_id = #protect(bucket_id, msf);
-    msf = bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks, msf);
+    #update_after_call msf = bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks, msf);
+    path = #protect(path, msf);
+    bucket_store = #protect(bucket_store, msf);
+    path_blocks = #protect(path_blocks, msf);
     path_blocks += (64u)offset;
   }
 }
@@ -284,7 +292,10 @@ fn _oram_access_write(
   {
     #declassify bucket_id = [path + 8 + 8 * i];
     bucket_id = #protect(bucket_id, msf);
-    msf = bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks, msf);
+    #update_after_call msf = bucket_store_write_bucket_blocks(bucket_store, bucket_id, path_blocks, msf);
+    path = #protect(path, msf);
+    bucket_store = #protect(bucket_store, msf);
+    path_blocks = #protect(path_blocks, msf);
     path_blocks += (64u)offset;
   }
 }
