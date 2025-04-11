@@ -344,48 +344,31 @@ fn _i_stash_add_block(
   overflow_blocks, msf = stash_overflow_blocks(stash, msf);
   overflow_capacity, msf = stash_overflow_capacity(stash, msf);
 
-  // c1 = 0; // inserted
-  // while {
-  //   i = 0;
-  //   while { cond = i < overflow_capacity; } (cond) {
-  //     msf = #update_msf(cond, msf);
-  //     bid = [overflow_blocks];
-  //     // cond
-  //     c1 = !c1;
-  //     b = bid == EMPTY_BLOCK_ID;
-  //     c2 = #SETcc(b);
-  //     c2 &= c1;
-  //     new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-  //     c1 = !c1;
-  //     c1 |= c2;
-  //     i += 1;
-  //     overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
-  //   }
-  //   msf = #update_msf(!cond, msf);
-  //   cond = c1 == 0;
-  // } (cond) { // !inserted
-  //   msf = #update_msf(cond, msf);
-  //   () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
-  //   _stash_extend_overflow(stash, length);
-  //   msf = #init_msf();
-  //   () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
-  // }
-  // msf = #update_msf(!cond, msf);
   c1 = 0; // inserted
-  i = 0;
-  while { cond = i < overflow_capacity; } (cond) {
+  while {
+    i = 0;
+    while { cond = i < overflow_capacity; } (cond) {
+      msf = #update_msf(cond, msf);
+      bid = [overflow_blocks];
+      // cond
+      c1 = !c1;
+      b = bid == EMPTY_BLOCK_ID;
+      c2 = #SETcc(b);
+      c2 &= c1;
+      new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+      c1 = !c1;
+      c1 |= c2;
+      i += 1;
+      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+    }
+    msf = #update_msf(!cond, msf);
+    cond = c1 == 0;
+  } (cond) { // !inserted
     msf = #update_msf(cond, msf);
-    bid = [overflow_blocks];
-    // cond
-    c1 = !c1;
-    b = bid == EMPTY_BLOCK_ID;
-    c2 = #SETcc(b);
-    c2 &= c1;
-    new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-    c1 = !c1;
-    c1 |= c2;
-    i += 1;
-    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+    () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
+    _stash_extend_overflow(stash, length);
+    msf = #init_msf();
+    () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
   }
   msf = #update_msf(!cond, msf);
   return new_block, msf;
