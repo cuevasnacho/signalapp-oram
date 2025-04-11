@@ -18,7 +18,6 @@ void oram_access_read_jazz(oram *oram, u64 block_id, u64 *out_data);
 void oram_access_write_jazz(oram *oram, u64 block_id, u64 *in_data);
 void odd_even_msort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub);
 void bitonic_sort(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
-void odd_even_msort(block* blocks, u64 *block_level_assignments, size_t lb, size_t ub);
 
 static inline uint64_t cpucycles(void) {
   uint64_t result;
