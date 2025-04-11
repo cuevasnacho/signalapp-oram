@@ -5,7 +5,7 @@ inline
 fn oram_clear(
   #public reg u64 oram,
   #msf reg u64 msf
-) -> #msf reg u64
+)
 {
   reg u64 bucket_store stash;
 
@@ -16,8 +16,6 @@ fn oram_clear(
   msf = stash_clear(stash, msf);
 
   (u64)[oram + 8 * ALLOCATED_UB_ADDR] = 0;
-
-  return msf;
 }
 
 /**
