@@ -125,7 +125,7 @@ fn _random_mod_by_pow_of_2(
 
   while {
     flag = 0;
-    random, num_bytes = #randombytes(random, flag);
+    #declassify random, num_bytes = #randombytes(random, flag);
   } (num_bytes != 8)
   randomp = random;
   r = randomp[u64 0];
