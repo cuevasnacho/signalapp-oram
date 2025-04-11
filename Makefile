@@ -1,4 +1,5 @@
 JC ?= jasminc
+JCT ?= jasmin-ct
 CC ?= gcc
 MAKE ?= make
 
@@ -72,6 +73,18 @@ setparams-stash: jasmin/params.jinc
 
 setparams-oram: jasmin/params.jinc
 	sed -i 's/^param int PATH_LENGTH = [0-9]\+;/param int PATH_LENGTH = 13;/' jasmin/params.jinc
+
+
+# ct and s-ct checks
+ct:
+	$(JCT) --infer jasmin/jpath_oram.jazz --slice=oram_access_read_jazz;\
+	$(JCT) --infer jasmin/jpath_oram.jazz --slice=oram_access_write_jazz;\
+	$(JCT) --infer jasmin/jpath_oram.jazz --slice=oram_clear_jazz
+
+sct:
+	$(JCT) --infer --sct jasmin/jpath_oram.jazz --slice=oram_access_read_jazz;\
+	$(JCT) --infer --sct jasmin/jpath_oram.jazz --slice=oram_access_write_jazz;\
+	$(JCT) --infer --sct jasmin/jpath_oram.jazz --slice=oram_clear_jazz
 
 
 # remove all trash files
