@@ -697,51 +697,64 @@ fn _stash_assign_buckets(
 }
 
 inline
-fn _comp_blocks(
-  reg u64 blocks block_level_assignments,
-  reg u64 idx1 idx2
-) -> reg u8
+fn _comp_and_swap(
+  reg u64 bla0 bla1 b0 b1
+)
 {
-  reg u64 bla1 bla2 b1 b2 offset;
-  reg u8 r s;
-  reg bool b;
+  reg u64 a b tmp cond0 cond1;
+  reg u32 edi;
+  reg u8 dil al dl;
+  inline int r;
+  reg bool cond;
 
-  bla1 = (64u)[block_level_assignments + 8 * idx1];
-  bla2 = (64u)[block_level_assignments + 8 * idx2];
-  offset = 8 * idx1;
-  offset *= DECRYPTED_BLOCK_SIZE_QWORDS;
-  offset += 8;
-  b1 = (64u)[blocks + offset];
-  offset = 8 * idx2;
-  offset *= DECRYPTED_BLOCK_SIZE_QWORDS;
-  offset += 8;
-  b2 = (64u)[blocks + offset];
+  a = [bla0];  // block_level_assignments
+  b = [bla1];  // block_level_assignments
+  tmp = [b0 + 8]; // blocks
 
-  b = b1 > b2;
-  r = #SETcc(b);
-  b = bla1 == bla2;
-  s = #SETcc(b);
-  r &= s;
-  b = bla1 > bla2;
-  s = #SETcc(b);
-  r |= s;
-  return r;
-}
+  // comp_blocks
+  cond = [b1 + 8] < tmp;
+  dil = #SETcc(cond);
+  cond = a == b;
+  al = #SETcc(cond);
+  al &= dil;
+  cond = a > b;
+  dl = #SETcc(cond);
+  al |= dl;
 
-inline
-fn _min(reg u64 a b) -> reg u64
-{
-  // b ^ ((a ^ b) & -((a - b) >> 63));
-  reg u64 sub;
-  sub = a;
-  sub -= b;
-  sub >>= 63;
-  sub = -sub;
-  a = a;
-  a ^= b;
-  a &= sub;
-  b ^= a;
-  return b;
+  edi = (32u)al;  // cond
+  cond0 = (64u)edi;
+  cond0 -= 1;
+  cond1 = (64u)edi;
+  cond1 = -cond1;
+
+  // cond_swap_blocks
+  for r = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
+    a = [b0 + r * 8];
+    b = [b1 + r * 8];
+    tmp = a;
+    b &= cond1;
+    a &= cond1;
+    tmp &= cond0;
+    b |= tmp;
+    [b0 + r * 8] = b;
+    b = [b1 + r * 8];
+    b &= cond0;
+    a |= b;
+    [b1 + r * 8] = a;
+  }
+
+  // cond_obv_swap_u64
+  tmp = [bla0];
+  a = [bla1];
+  b = tmp;
+  a &= cond1;
+  tmp &= cond1;
+  b &= cond0;
+  a |= b;
+  [bla0] = a;
+  cond0 &= [bla1];
+  tmp |= cond0;
+  [bla1] = tmp;
 }
 
 inline
@@ -755,149 +768,104 @@ fn _odd_even_msort(
   n = ub - lb;
   // if (n <= 1) return;
 
-  reg u64 current_assignment i remaining step next_step;
-  reg u64 rsi_0 mask adjusted_range rax r13 rdi block_offset rdx rcx rax_3 pairs_to_process r8 r11 r10 rbx rsi left right rcx_1 rax_4 r9_1 rdi_1 r13_1;
-  reg u32 edi;
-  reg u8 dil al dl;
-  reg bool b cond;
-  inline int r;
-
-  #mmx reg u64 msf_s;
+  // pointer variables
+  reg u64 current_assignment next_step rdx rcx;
+  // standard variables
+  reg u64 i j k mini adjusted_range mod_p block_offset rdi r13 rax;
+  // temporary variables
+  reg u64 rax_3 b0 b1 bla0 bla1;
+  // boolean variables
+  reg bool cond;
 
   current_assignment = #LEA(block_level_assignments + lb * 8);
-  i = lb;
-  remaining = n;
-  step = 1;
+  k = 1;
   () = #spill(current_assignment);
 
   while {
-    next_step = #LEA(step + step);
-    rsi_0 = #LEA(step - 1);
-    cond = step != 0;
+    next_step = #LEA(k + k);
+    mod_p = #LEA(k - 1); // mod k
+    cond = k != 0;
     if (cond) {
       msf = #update_msf(cond, msf);
       while {
-        mask = rsi_0;
-        mask &= step;
-        adjusted_range = remaining;
-        adjusted_range -= step;
-        cond = mask < adjusted_range;
+        j = mod_p;
+        j &= k;
+        adjusted_range = n;
+        adjusted_range -= k;
+        cond = j < adjusted_range;  // j < n-k
         if (cond) {
           msf = #update_msf(cond, msf);
-          rax = step * 2720;
-          () = #spill(remaining);
+          rax = k * (2 * DECRYPTED_BLOCK_SIZE);
+          () = #spill(n);
           r13 = adjusted_range;
-          rdi = #LEA(step + step);
-          () = #spill(rsi_0);
-          r13 -= mask;
+          rdi = #LEA(k + k);
+          () = #spill(mod_p);
+          r13 -= j;
           () = #spill(blocks, rax);
-          block_offset = #LEA(i + mask);
-          block_offset *= 1360;
-          () = #spill(block_level_assignments, i, adjusted_range);
+          block_offset = #LEA(lb + j);
+          block_offset *= DECRYPTED_BLOCK_SIZE;
+          () = #spill(block_level_assignments, lb, adjusted_range);
           rdx = #LEA(block_offset + blocks);
-          block_offset = #LEA(step + i);
+          block_offset = #LEA(k + lb);
           block_offset = #LEA(block_level_assignments + block_offset * 8);
           rcx = rdx;
           () = #spill(block_offset);
-          rax_3 = step * 1360;
+          rax_3 = k * DECRYPTED_BLOCK_SIZE;
           () = #spill(rax_3);
 
           while {
-            pairs_to_process = r13;
-            b = step < r13;
-            pairs_to_process = step if b;
-            cond = pairs_to_process != 0;
+            mini = r13;
+            cond = k < r13;
+            mini = k if cond;
+            cond = mini != 0;
             if (cond) {
               msf = #update_msf(cond, msf);
               () = #spill(rdi);
               () = #unspill(current_assignment);
               current_assignment = #protect(current_assignment, msf);
-              pairs_to_process += mask;
-              r8 = rcx;
-              r11 = #LEA(mask * 8);
+              mini += j;
+              b0 = rcx;
+              bla1 = #LEA(j * 8);
               () = #spill(rcx);
-              r10 = mask;
-              rbx = #LEA(current_assignment + r11);
+              i = j;
+              bla0 = #LEA(current_assignment + bla1);
               () = #spill(r13, current_assignment);
               () = #unspill(block_offset);
               block_offset = #protect(block_offset, msf);
               
-              r11 += block_offset;
+              bla1 += block_offset;
               () = #spill(block_offset);
               () = #unspill(rax_3);
               rax_3 = #protect(rax_3, msf);
-              rsi = #LEA(rax_3 + rcx);
+              b1 = #LEA(rax_3 + rcx);
               () = #spill(rax_3);
 
-              while { cond = r10 != pairs_to_process; } (cond) {
+              while { cond = i != mini; } (cond) {
+                reg u64 left right;
                 msf = #update_msf(cond, msf);
-                left = r10;
+                left = i;
                 left /= next_step;
                 left = left;
-                right = #LEA(r10 + step);
-                () = #spill(r10);
+                right = #LEA(i + k);
+                () = #spill(i);
                 right /= next_step;
                 right = right;
                 () = #spill(next_step);
                 cond = left == right;
                 if (cond) {
                   msf = #update_msf(cond, msf);
-                  rdx = [rbx];
-                  rcx_1 = [r11];
-                  rax_4 = [r8 + 8];
-
-                  b = [rsi + 8] < rax_4;
-                  dil = #SETcc(b);
-                  b = rdx == rcx_1;
-                  al = #SETcc(b);
-                  al &= dil;
-                  b = rdx > rcx_1;
-                  dl = #SETcc(b);
-                  al |= dl;
-
-                  edi = (32u)al;
-                  r9_1 = (64u)edi;
-                  r9_1 -= 1;
-                  rdi_1 = (64u)edi;
-                  rdi_1 = -rdi_1;
-
-                  for r = 0 to 170 {
-                    rdx = [r8 + r * 8];
-                    rcx_1 = [rsi + r * 8];
-                    r13_1 = rdx;
-                    rcx_1 &= rdi_1;
-                    rdx &= rdi_1;
-                    r13_1 &= r9_1;
-                    rcx_1 |= r13_1;
-                    [r8 + r * 8] = rcx_1;
-                    rcx_1 = [rsi + r * 8];
-                    rcx_1 &= r9_1;
-                    rdx |= rcx_1;
-                    [rsi + r * 8] = rdx;
-                  }
-
-                  rax_4 = [rbx];
-                  rdx = [r11];
-                  rcx_1 = rax_4;
-                  rdx &= rdi_1;
-                  rax_4 &= rdi_1;
-                  rcx_1 &= r9_1;
-                  rdx |= rcx_1;
-                  [rbx] = rdx;
-                  r9_1 &= [r11];
-                  rax_4 |= r9_1;
-                  [r11] = rax_4;
+                  _comp_and_swap(bla0, bla1, b0, b1);
                 } else {
                   msf = #update_msf(!cond, msf);
                 }
-                () = #unspill(r10, next_step);
-                r10 = #protect(r10, msf);
+                () = #unspill(i, next_step);
+                i = #protect(i, msf);
                 next_step = #protect(next_step, msf);
-                r10 = #LEA(r10 + 1);
-                rbx = #LEA(rbx + 8);
-                r11 = #LEA(r11 + 8);
-                rsi = #LEA(rsi + 1360);
-                r8 = #LEA(r8 + 1360);
+                i = #LEA(i + 1);
+                bla0 = #LEA(bla0 + 8);
+                bla1 = #LEA(bla1 + 8);
+                b1 = #LEA(b1 + DECRYPTED_BLOCK_SIZE);
+                b0 = #LEA(b0 + DECRYPTED_BLOCK_SIZE);
               }
               msf = #update_msf(!cond, msf);
               () = #unspill(rdi, r13, rcx);
@@ -909,29 +877,28 @@ fn _odd_even_msort(
             }
             () = #unspill(rax);
             rax = #protect(rax, msf);
-            mask = #LEA(mask + rdi);
+            j = #LEA(j + rdi);
             r13 -= rdi;
             rcx = #LEA(rcx + rax);
             () = #spill(rax);
             () = #unspill(adjusted_range);
             adjusted_range = #protect(adjusted_range, msf);
-            cond = mask < adjusted_range;
+            cond = j < adjusted_range;
             () = #spill(adjusted_range);
           } (cond) {
             msf = #update_msf(cond, msf);
           }
           msf = #update_msf(!cond, msf);
-          () = #unspill(remaining, rsi_0, blocks, block_level_assignments, i);
-          remaining = #protect(remaining, msf);
-          rsi_0 = #protect(rsi_0, msf);
+          () = #unspill(n, mod_p, blocks, block_level_assignments, lb);
+          n = #protect(n, msf);
+          mod_p = #protect(mod_p, msf);
           blocks = #protect(blocks, msf);
-          // block_level_assignments = #protect(block_level_assignments, msf);
-          i = #protect(i, msf);
+          lb = #protect(lb, msf);
         } else {
           msf = #update_msf(!cond, msf);
         }
-        step >>= 1;
-        cond = step != 0;
+        k >>= 1;
+        cond = k != 0;
       } (cond) {
         msf = #update_msf(cond, msf);
       }
@@ -939,8 +906,8 @@ fn _odd_even_msort(
     } else {
       msf = #update_msf(!cond, msf);
     }
-    step = next_step;
-    cond = next_step < remaining;
+    k = next_step;
+    cond = next_step < n;
   } (cond) {
     msf = #update_msf(cond, msf);
   }
