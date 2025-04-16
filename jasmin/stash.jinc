@@ -344,31 +344,48 @@ fn _i_stash_add_block(
   overflow_blocks, msf = stash_overflow_blocks(stash, msf);
   overflow_capacity, msf = stash_overflow_capacity(stash, msf);
 
+  // c1 = 0; // inserted
+  // while {
+  //   i = 0;
+  //   while { cond = i < overflow_capacity; } (cond) {
+  //     msf = #update_msf(cond, msf);
+  //     bid = [overflow_blocks];
+  //     // cond
+  //     c1 = !c1;
+  //     b = bid == EMPTY_BLOCK_ID;
+  //     c2 = #SETcc(b);
+  //     c2 &= c1;
+  //     new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+  //     c1 = !c1;
+  //     c1 |= c2;
+  //     i += 1;
+  //     overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  //   }
+  //   msf = #update_msf(!cond, msf);
+  //   cond = c1 == 0;
+  // } (cond) { // !inserted
+  //   msf = #update_msf(cond, msf);
+  //   () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
+  //   _stash_extend_overflow(stash, length);
+  //   msf = #init_msf();
+  //   () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
+  // }
+  // msf = #update_msf(!cond, msf);
   c1 = 0; // inserted
-  while {
-    i = 0;
-    while { cond = i < overflow_capacity; } (cond) {
-      msf = #update_msf(cond, msf);
-      bid = [overflow_blocks];
-      // cond
-      c1 = !c1;
-      b = bid == EMPTY_BLOCK_ID;
-      c2 = #SETcc(b);
-      c2 &= c1;
-      new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-      c1 = !c1;
-      c1 |= c2;
-      i += 1;
-      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
-    }
-    msf = #update_msf(!cond, msf);
-    cond = c1 == 0;
-  } (cond) { // !inserted
+  i = 0;
+  while { cond = i < overflow_capacity; } (cond) {
     msf = #update_msf(cond, msf);
-    () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
-    _stash_extend_overflow(stash, length);
-    msf = #init_msf();
-    () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
+    bid = [overflow_blocks];
+    // cond
+    c1 = !c1;
+    b = bid == EMPTY_BLOCK_ID;
+    c2 = #SETcc(b);
+    c2 &= c1;
+    new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+    c1 = !c1;
+    c1 |= c2;
+    i += 1;
+    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
   }
   msf = #update_msf(!cond, msf);
   return new_block, msf;
@@ -738,33 +755,39 @@ fn _odd_even_msort(
   n = ub - lb;
   // if (n <= 1) return;
 
-  reg u64 current_assignment i remaining r15 next_step;
-  reg u64 rsi_0 mask adjusted_range rax r13 rdi block_offset rdx rcx rax_3 pairs_to_process r8 r11 r10 rbx rsi left right rdx rcx_1 rax_4 r9_1 rdi_1 r13_1;
+  reg u64 current_assignment i remaining step next_step;
+  reg u64 rsi_0 mask adjusted_range rax r13 rdi block_offset rdx rcx rax_3 pairs_to_process r8 r11 r10 rbx rsi left right rcx_1 rax_4 r9_1 rdi_1 r13_1;
   reg u32 edi;
   reg u8 dil al dl;
-  reg bool b;
+  reg bool b cond;
   inline int r;
+
+  #mmx reg u64 msf_s;
 
   current_assignment = #LEA(block_level_assignments + lb * 8);
   i = lb;
   remaining = n;
-  r15 = 1;
+  step = 1;
   () = #spill(current_assignment);
 
   while {
-    next_step = #LEA(r15 + r15);
-    rsi_0 = #LEA(r15 - 1);
-    if (r15 != 0) {
+    next_step = #LEA(step + step);
+    rsi_0 = #LEA(step - 1);
+    cond = step != 0;
+    if (cond) {
+      msf = #update_msf(cond, msf);
       while {
         mask = rsi_0;
-        mask &= r15;
+        mask &= step;
         adjusted_range = remaining;
-        adjusted_range -= r15;
-        if (mask < adjusted_range) {
-          rax = r15 * 2720;
+        adjusted_range -= step;
+        cond = mask < adjusted_range;
+        if (cond) {
+          msf = #update_msf(cond, msf);
+          rax = step * 2720;
           () = #spill(remaining);
           r13 = adjusted_range;
-          rdi = #LEA(r15 + r15);
+          rdi = #LEA(step + step);
           () = #spill(rsi_0);
           r13 -= mask;
           () = #spill(blocks, rax);
@@ -772,43 +795,53 @@ fn _odd_even_msort(
           block_offset *= 1360;
           () = #spill(block_level_assignments, i, adjusted_range);
           rdx = #LEA(block_offset + blocks);
-          block_offset = #LEA(r15 + i);
+          block_offset = #LEA(step + i);
           block_offset = #LEA(block_level_assignments + block_offset * 8);
           rcx = rdx;
           () = #spill(block_offset);
-          rax_3 = r15 * 1360;
+          rax_3 = step * 1360;
           () = #spill(rax_3);
 
           while {
             pairs_to_process = r13;
-            b = r15 < r13;
-            pairs_to_process = r15 if b;
-            if (pairs_to_process != 0) {
+            b = step < r13;
+            pairs_to_process = step if b;
+            cond = pairs_to_process != 0;
+            if (cond) {
+              msf = #update_msf(cond, msf);
               () = #spill(rdi);
               () = #unspill(current_assignment);
+              current_assignment = #protect(current_assignment, msf);
               pairs_to_process += mask;
               r8 = rcx;
               r11 = #LEA(mask * 8);
               () = #spill(rcx);
               r10 = mask;
               rbx = #LEA(current_assignment + r11);
-              () = #spill(r13);
+              () = #spill(r13, current_assignment);
               () = #unspill(block_offset);
+              block_offset = #protect(block_offset, msf);
               
               r11 += block_offset;
+              () = #spill(block_offset);
               () = #unspill(rax_3);
+              rax_3 = #protect(rax_3, msf);
               rsi = #LEA(rax_3 + rcx);
+              () = #spill(rax_3);
 
-              while (r10 != pairs_to_process) {
+              while { cond = r10 != pairs_to_process; } (cond) {
+                msf = #update_msf(cond, msf);
                 left = r10;
                 left /= next_step;
                 left = left;
-                right = #LEA(r10 + r15);
+                right = #LEA(r10 + step);
                 () = #spill(r10);
                 right /= next_step;
                 right = right;
                 () = #spill(next_step);
-                if (left == right) {
+                cond = left == right;
+                if (cond) {
+                  msf = #update_msf(cond, msf);
                   rdx = [rbx];
                   rcx_1 = [r11];
                   rax_4 = [r8 + 8];
@@ -854,37 +887,65 @@ fn _odd_even_msort(
                   r9_1 &= [r11];
                   rax_4 |= r9_1;
                   [r11] = rax_4;
+                } else {
+                  msf = #update_msf(!cond, msf);
                 }
                 () = #unspill(r10, next_step);
+                r10 = #protect(r10, msf);
+                next_step = #protect(next_step, msf);
                 r10 = #LEA(r10 + 1);
                 rbx = #LEA(rbx + 8);
                 r11 = #LEA(r11 + 8);
                 rsi = #LEA(rsi + 1360);
                 r8 = #LEA(r8 + 1360);
               }
-              () = #unspill(rdi);
-              () = #unspill(r13);
-              () = #unspill(rcx);
+              msf = #update_msf(!cond, msf);
+              () = #unspill(rdi, r13, rcx);
+              rdi = #protect(rdi, msf);
+              r13 = #protect(r13, msf);
+              rcx = #protect(rcx, msf);
+            } else {
+              msf = #update_msf(!cond, msf);
             }
             () = #unspill(rax);
+            rax = #protect(rax, msf);
             mask = #LEA(mask + rdi);
             r13 -= rdi;
             rcx = #LEA(rcx + rax);
+            () = #spill(rax);
             () = #unspill(adjusted_range);
-          } (mask < adjusted_range)
-          () = #unspill(remaining);
-          () = #unspill(rsi_0);
-          () = #unspill(blocks);
-          () = #unspill(block_level_assignments);
-          () = #unspill(i);
+            adjusted_range = #protect(adjusted_range, msf);
+            cond = mask < adjusted_range;
+            () = #spill(adjusted_range);
+          } (cond) {
+            msf = #update_msf(cond, msf);
+          }
+          msf = #update_msf(!cond, msf);
+          () = #unspill(remaining, rsi_0, blocks, block_level_assignments, i);
+          remaining = #protect(remaining, msf);
+          rsi_0 = #protect(rsi_0, msf);
+          blocks = #protect(blocks, msf);
+          // block_level_assignments = #protect(block_level_assignments, msf);
+          i = #protect(i, msf);
+        } else {
+          msf = #update_msf(!cond, msf);
         }
-        r15 >>= 1;
-      } (r15 != 0)
+        step >>= 1;
+        cond = step != 0;
+      } (cond) {
+        msf = #update_msf(cond, msf);
+      }
+      msf = #update_msf(!cond, msf);
+    } else {
+      msf = #update_msf(!cond, msf);
     }
-    r15 = next_step;
-  } (next_step < remaining)
+    step = next_step;
+    cond = next_step < remaining;
+  } (cond) {
+    msf = #update_msf(cond, msf);
+  }
+  msf = #update_msf(!cond, msf);
 
-  msf = #init_msf();
   return msf;
 }
 

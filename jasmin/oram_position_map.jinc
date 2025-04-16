@@ -222,6 +222,8 @@ fn __i_oram_put(
 
   () = #spill(stash);
   () = #unspill(path);
+  path = #protect(path, msf);
+  () = #spill(path);
   msf = stash_build_path(stash, path, msf, PATH_LENGTH_0);
   () = #unspill(oram);
   oram = #protect(oram, msf);
@@ -229,6 +231,7 @@ fn __i_oram_put(
   bucket_store, msf = oram_bucket_store(oram, msf);
   path_blocks, msf = stash_path_blocks(stash, msf);
   () = #unspill(path);
+  path = #protect(path, msf);
   for i = 0 to PATH_LENGTH_0
   {
     #declassify bucket_id = [path + 8 + 8 * i];
