@@ -701,11 +701,13 @@ fn _comp_and_swap(
   reg u64 bla0 bla1 b0 b1
 )
 {
+  reg u128 r0 r1 tmp128 mask0 mask1;
   reg u64 a b tmp cond0 cond1;
   reg u32 edi;
   reg u8 dil al dl;
   inline int r;
   reg bool cond;
+  stack u64 c0_s c1_s;
 
   a = [bla0];  // block_level_assignments
   b = [bla1];  // block_level_assignments
@@ -727,20 +729,24 @@ fn _comp_and_swap(
   cond1 = (64u)edi;
   cond1 = -cond1;
 
+  c0_s = cond0;
+  c1_s = cond1;
+  mask0 = #VPBROADCAST_2u64(c0_s);
+  mask1 = #VPBROADCAST_2u64(c1_s);
   // cond_swap_blocks
-  for r = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    a = [b0 + r * 8];
-    b = [b1 + r * 8];
-    tmp = a;
-    b &= cond1;
-    a &= cond1;
-    tmp &= cond0;
-    b |= tmp;
-    [b0 + r * 8] = b;
-    b = [b1 + r * 8];
-    b &= cond0;
-    a |= b;
-    [b1 + r * 8] = a;
+  for r = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
+    r0 = (u128)[b0 + r * 16];
+    r1 = (u128)[b1 + r * 16];
+    tmp128 = r0;
+    r1 = #VPAND_128(r1, mask1);
+    r0 = #VPAND_128(r0, mask1);
+    tmp128 = #VPAND_128(tmp128, mask0);
+    r1 = #VPOR_128(r1, tmp128);
+    (u128)[b0 + r * 16] = r1;
+    r1 = (u128)[b1 + r * 16];
+    r1 = #VPAND_128(r1, mask0);
+    r0 = #VPOR_128(r0, r1);
+    (u128)[b1 + r * 16] = r0;
   }
 
   // cond_obv_swap_u64
