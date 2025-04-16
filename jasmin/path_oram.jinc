@@ -205,14 +205,15 @@ fn _oram_access_read(
   () = #spill(oram);
   target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH);
 
+  () = #spill(stash);
   () = #unspill(path);
-  path = #protect(path, msf);
   msf = stash_build_path(stash, path, msf, PATH_LENGTH);
   () = #unspill(oram);
   oram = #protect(oram, msf);
 
   bucket_store, msf = oram_bucket_store(oram, msf);
   path_blocks, msf = stash_path_blocks(stash, msf);
+  () = #unspill(path);
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   for i = 0 to PATH_LENGTH
   {
@@ -273,14 +274,15 @@ fn _oram_access_write(
   () = #spill(oram);
   target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH);
 
+  () = #spill(stash);
   () = #unspill(path);
-  path = #protect(path, msf);
   msf = stash_build_path(stash, path, msf, PATH_LENGTH);
   () = #unspill(oram);
   oram = #protect(oram, msf);
 
   bucket_store, msf = oram_bucket_store(oram, msf);
   path_blocks, msf = stash_path_blocks(stash, msf);
+  () = #unspill(path);
   offset = BLOCKS_PER_BUCKET * DECRYPTED_BLOCK_SIZE_QWORDS * 8;
   for i = 0 to PATH_LENGTH
   {

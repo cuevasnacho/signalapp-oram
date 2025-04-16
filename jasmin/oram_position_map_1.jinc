@@ -140,14 +140,15 @@ fn __oram_put_1(
   () = #spill(oram);
   target_block, msf = _i_stash_add_block(stash, target_block, msf, PATH_LENGTH_1);
 
+  () = #spill(stash);
   () = #unspill(path);
-  path = #protect(path, msf);
   msf = stash_build_path(stash, path, msf, PATH_LENGTH_1);
   () = #unspill(oram);
   oram = #protect(oram, msf);
 
   bucket_store, msf = oram_bucket_store(oram, msf);
   path_blocks, msf = stash_path_blocks(stash, msf);
+  () = #unspill(path);
   for i = 0 to PATH_LENGTH_1
   {
     #declassify bucket_id = [path + 8 + 8 * i];

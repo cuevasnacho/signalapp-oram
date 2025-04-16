@@ -734,125 +734,157 @@ fn _odd_even_msort(
   #msf reg u64 msf
 ) -> #msf reg u64
 {
-  // indices variables
-  reg u64 p k j i;
-  // mmx
-  #mmx reg u64 msf_s;
-  // temporary variables
-  reg u64 bound mini idx1 idx2 divisor one tmp addr1 addr2;
-  // boolean variables
-  reg u8 cond;
+  reg u64 n;
+  n = ub - lb;
+  // if (n <= 1) return;
+
+  reg u64 current_assignment i remaining r15 next_step;
+  reg u64 rsi_0 mask adjusted_range rax r13 rdi block_offset rdx rcx rax_3 pairs_to_process r8 r11 r10 rbx rsi left right rdx rcx_1 rax_4 r9_1 rdi_1 r13_1;
+  reg u32 edi;
+  reg u8 dil al dl;
   reg bool b;
+  inline int r;
 
-  () = #spill(blocks, block_level_assignments);
-  ub = ub; lb = lb;
-  ub -= lb;
-  () = #spill(lb);
-  p = 1; one = 1;
-  while { b = p < ub; } (b) {
-    msf = #update_msf(b, msf);
-    k = p;
-    () = #spill(p);
-    while { b = k >= 1; } (b) {
-      msf = #update_msf(b, msf);
-      j = k;
-      () = #unspill(p);
-      p = #protect(p, msf);
-      tmp = p;
-      () = #spill(p);
-      tmp -= 1;
-      j &= tmp;
-      j = j;
-      k = k;
-      bound = ub;
-      bound -= k;
-      while { b = j < bound; } (b) {
-        msf = #update_msf(b, msf);
-        () = #spill(bound);
-        mini = ub;
-        mini -= j;
-        mini -= k;
-        mini = _min(k, mini);
-        i = 0;
-        while { b = i < mini; } (b) {
-          msf = #update_msf(b, msf);
-          () = #spill(mini);
-          idx1 = #LEA(i + j);
-          idx2 = #LEA(idx1 + k);
-          () = #unspill(p);
-          p = #protect(p, msf);
-          msf_s = #mov_msf(msf);
-          divisor = p;
-          () = #spill(p);
-          divisor = #SHL(divisor, one);
+  current_assignment = #LEA(block_level_assignments + lb * 8);
+  i = lb;
+  remaining = n;
+  r15 = 1;
+  () = #spill(current_assignment);
 
-          idx1 = idx1 / divisor;
-          idx1 = idx1;
-          idx2 = idx2;
-          idx2 = idx2 / divisor;
-          b = idx1 == idx2;
-          msf = #mov_msf(msf_s);
-          if (b) {
-            msf = #update_msf(b, msf);
-            msf_s = #mov_msf(msf);
-            idx1 = #LEA(i + j);
-            () = #spill(i, j, ub);
-            () = #unspill(lb);
-            lb = #protect(lb, msf);
-            idx1 = #LEA(idx1 + lb);
-            () = #spill(lb);
-            idx2 = #LEA(idx1 + k);
-            () = #spill(k);
-            () = #unspill(blocks, block_level_assignments);
-            blocks = #protect(blocks, msf);
-            block_level_assignments = #protect(block_level_assignments, msf);
-            cond = _comp_blocks(blocks, block_level_assignments, idx1, idx2);
-            // swap
-            addr1 = blocks;
-            tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx1;
-            addr1 += tmp;
-            tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx2;
-            addr2 = #LEA(blocks + tmp);
-            () = #spill(blocks);
-            _cond_swap_blocks(cond, addr1, addr2);
+  while {
+    next_step = #LEA(r15 + r15);
+    rsi_0 = #LEA(r15 - 1);
+    if (r15 != 0) {
+      while {
+        mask = rsi_0;
+        mask &= r15;
+        adjusted_range = remaining;
+        adjusted_range -= r15;
+        if (mask < adjusted_range) {
+          rax = r15 * 2720;
+          () = #spill(remaining);
+          r13 = adjusted_range;
+          rdi = #LEA(r15 + r15);
+          () = #spill(rsi_0);
+          r13 -= mask;
+          () = #spill(blocks, rax);
+          block_offset = #LEA(i + mask);
+          block_offset *= 1360;
+          () = #spill(block_level_assignments, i, adjusted_range);
+          rdx = #LEA(block_offset + blocks);
+          block_offset = #LEA(r15 + i);
+          block_offset = #LEA(block_level_assignments + block_offset * 8);
+          rcx = rdx;
+          () = #spill(block_offset);
+          rax_3 = r15 * 1360;
+          () = #spill(rax_3);
 
-            addr1 = block_level_assignments;
-            tmp = 8 * idx1;
-            addr1 += tmp;
-            tmp = 8 * idx2;
-            addr2 = #LEA(block_level_assignments + tmp);
-            () = #spill(block_level_assignments);
-            _cond_obv_swap_u64(cond, addr1, addr2);
-            msf = #mov_msf(msf_s);
-            () = #unspill(i, j, k, ub);
-            i = #protect(i, msf);
-            j = #protect(j, msf);
-            k = #protect(k, msf);
-            ub = #protect(ub, msf);
-          } else {
-            msf = #update_msf(!b, msf);
-          }
-          () = #unspill(mini);
-          mini = #protect(mini, msf);
-          i = #LEA(i + 1);
+          while {
+            pairs_to_process = r13;
+            b = r15 < r13;
+            pairs_to_process = r15 if b;
+            if (pairs_to_process != 0) {
+              () = #spill(rdi);
+              () = #unspill(current_assignment);
+              pairs_to_process += mask;
+              r8 = rcx;
+              r11 = #LEA(mask * 8);
+              () = #spill(rcx);
+              r10 = mask;
+              rbx = #LEA(current_assignment + r11);
+              () = #spill(r13);
+              () = #unspill(block_offset);
+              
+              r11 += block_offset;
+              () = #unspill(rax_3);
+              rsi = #LEA(rax_3 + rcx);
+
+              while (r10 != pairs_to_process) {
+                left = r10;
+                left /= next_step;
+                left = left;
+                right = #LEA(r10 + r15);
+                () = #spill(r10);
+                right /= next_step;
+                right = right;
+                () = #spill(next_step);
+                if (left == right) {
+                  rdx = [rbx];
+                  rcx_1 = [r11];
+                  rax_4 = [r8 + 8];
+
+                  b = [rsi + 8] < rax_4;
+                  dil = #SETcc(b);
+                  b = rdx == rcx_1;
+                  al = #SETcc(b);
+                  al &= dil;
+                  b = rdx > rcx_1;
+                  dl = #SETcc(b);
+                  al |= dl;
+
+                  edi = (32u)al;
+                  r9_1 = (64u)edi;
+                  r9_1 -= 1;
+                  rdi_1 = (64u)edi;
+                  rdi_1 = -rdi_1;
+
+                  for r = 0 to 170 {
+                    rdx = [r8 + r * 8];
+                    rcx_1 = [rsi + r * 8];
+                    r13_1 = rdx;
+                    rcx_1 &= rdi_1;
+                    rdx &= rdi_1;
+                    r13_1 &= r9_1;
+                    rcx_1 |= r13_1;
+                    [r8 + r * 8] = rcx_1;
+                    rcx_1 = [rsi + r * 8];
+                    rcx_1 &= r9_1;
+                    rdx |= rcx_1;
+                    [rsi + r * 8] = rdx;
+                  }
+
+                  rax_4 = [rbx];
+                  rdx = [r11];
+                  rcx_1 = rax_4;
+                  rdx &= rdi_1;
+                  rax_4 &= rdi_1;
+                  rcx_1 &= r9_1;
+                  rdx |= rcx_1;
+                  [rbx] = rdx;
+                  r9_1 &= [r11];
+                  rax_4 |= r9_1;
+                  [r11] = rax_4;
+                }
+                () = #unspill(r10, next_step);
+                r10 = #LEA(r10 + 1);
+                rbx = #LEA(rbx + 8);
+                r11 = #LEA(r11 + 8);
+                rsi = #LEA(rsi + 1360);
+                r8 = #LEA(r8 + 1360);
+              }
+              () = #unspill(rdi);
+              () = #unspill(r13);
+              () = #unspill(rcx);
+            }
+            () = #unspill(rax);
+            mask = #LEA(mask + rdi);
+            r13 -= rdi;
+            rcx = #LEA(rcx + rax);
+            () = #unspill(adjusted_range);
+          } (mask < adjusted_range)
+          () = #unspill(remaining);
+          () = #unspill(rsi_0);
+          () = #unspill(blocks);
+          () = #unspill(block_level_assignments);
+          () = #unspill(i);
         }
-        msf = #update_msf(!b, msf);
-        tmp = k;
-        tmp = #SHL(tmp, one);
-        j = #LEA(j + tmp);
-        () = #unspill(bound);
-        bound = #protect(bound, msf);
-      }
-      msf = #update_msf(!b, msf);
-      k = #SHR(k, one);
+        r15 >>= 1;
+      } (r15 != 0)
     }
-    msf = #update_msf(!b, msf);
-    () = #unspill(p);
-    p = #protect(p, msf);
-    p = #SHL(p, one);
-  }
-  msf = #update_msf(!b, msf);
+    r15 = next_step;
+  } (next_step < remaining)
 
+  msf = #init_msf();
   return msf;
 }
 
