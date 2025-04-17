@@ -119,10 +119,10 @@ fn _cond_copy_block(
 )
 {
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    _cond_obv_cpy_u64(cond, dst, src);
-    dst = #LEA(dst + 8);
-    src = #LEA(src + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
+    _cond_obv_cpy_u128(cond, dst, src);
+    dst = #LEA(dst + 16);
+    src = #LEA(src + 16);
   }
 }
 
@@ -133,13 +133,13 @@ fn _i_cond_copy_block(
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] src
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
 {
-  reg u64 tmp va;
+  reg u128 tmp va;
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    va = (64u)[dst];
-    tmp = _ternary(cond, src[u64 i], va);
-    (u64)[dst] = tmp;
-    dst = #LEA(dst + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
+    va = (u128)[dst];
+    tmp = _ternary128(cond, src[u128 i], va);
+    (u128)[dst] = tmp;
+    dst = #LEA(dst + 16);
   }
   return src;
 }
@@ -151,10 +151,10 @@ fn _cond_swap_blocks(
 )
 {
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    _cond_obv_swap_u64(cond, a, b);
-    a = #LEA(a + 8);
-    b = #LEA(b + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
+    _cond_obv_swap_u128(cond, a, b);
+    a = #LEA(a + 16);
+    b = #LEA(b + 16);
   }
 }
 
@@ -165,14 +165,14 @@ fn _i_cond_swap_blocks(
   reg u64 b
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
 {
-  reg u64 tmp rb;
+  reg u128 tmp rb;
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    rb = (64u)[b];
-    tmp = _ternary(cond, a[u64 i], rb);
-    (u64)[b] = tmp;
-    a[u64 i] = _ternary(cond, rb, a[u64 i]);
-    b = #LEA(b + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
+    rb = (u128)[b];
+    tmp = _ternary128(cond, a[u128 i], rb);
+    (u128)[b] = tmp;
+    a[u128 i] = _ternary128(cond, rb, a[u128 i]);
+    b = #LEA(b + 16);
   }
   return a;
 }
