@@ -701,6 +701,7 @@ fn _comp_and_swap(
   reg u64 bla0 bla1 b0 b1
 )
 {
+  reg u256 t0 t1 tmp256 mask2 mask3;
   reg u128 r0 r1 tmp128 mask0 mask1;
   reg u64 a b tmp cond0 cond1;
   reg u32 edi;
@@ -731,23 +732,38 @@ fn _comp_and_swap(
 
   c0_s = cond0;
   c1_s = cond1;
+  mask2 = #VPBROADCAST_4u64(c0_s);
+  mask3 = #VPBROADCAST_4u64(c1_s);
+  // cond_swap_blocks
+  for r = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 4 {
+    t0 = (u256)[b0 + r * 32];
+    t1 = (u256)[b1 + r * 32];
+    tmp256 = t0;
+    t1 = #VPAND_256(t1, mask3);
+    t0 = #VPAND_256(t0, mask3);
+    tmp256 = #VPAND_256(tmp256, mask2);
+    t1 = #VPOR_256(t1, tmp256);
+    (u256)[b0 + r * 32] = t1;
+    t1 = (u256)[b1 + r * 32];
+    t1 = #VPAND_256(t1, mask2);
+    t0 = #VPOR_256(t0, t1);
+    (u256)[b1 + r * 32] = t0;
+  }
   mask0 = #VPBROADCAST_2u64(c0_s);
   mask1 = #VPBROADCAST_2u64(c1_s);
-  // cond_swap_blocks
-  for r = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
-    r0 = (u128)[b0 + r * 16];
-    r1 = (u128)[b1 + r * 16];
-    tmp128 = r0;
-    r1 = #VPAND_128(r1, mask1);
-    r0 = #VPAND_128(r0, mask1);
-    tmp128 = #VPAND_128(tmp128, mask0);
-    r1 = #VPOR_128(r1, tmp128);
-    (u128)[b0 + r * 16] = r1;
-    r1 = (u128)[b1 + r * 16];
-    r1 = #VPAND_128(r1, mask0);
-    r0 = #VPOR_128(r0, r1);
-    (u128)[b1 + r * 16] = r0;
-  }
+
+  r0 = (u128)[b0 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32];
+  r1 = (u128)[b1 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32];
+  tmp128 = r0;
+  r1 = #VPAND_128(r1, mask1);
+  r0 = #VPAND_128(r0, mask1);
+  tmp128 = #VPAND_128(tmp128, mask0);
+  r1 = #VPOR_128(r1, tmp128);
+  (u128)[b0 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32] = r1;
+  r1 = (u128)[b1 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32];
+  r1 = #VPAND_128(r1, mask0);
+  r0 = #VPOR_128(r0, r1);
+  (u128)[b1 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32] = r0;
 
   // cond_obv_swap_u64
   tmp = [bla0];
