@@ -1,3 +1,106 @@
+inline
+fn block_id_for_index_ct(
+  reg u64 oram_position_map,
+  reg u64 index
+) -> reg u64
+{
+  reg u64 offset;
+  reg u64 m_prime sh1 sh2 base_block_id;
+
+  m_prime = [oram_position_map + 8 * EPB_CT_M_P_ADDR];
+  sh1 = [oram_position_map + 8 * EPB_CT_SH1_ADDR];
+  sh2 = [oram_position_map + 8 * EPB_CT_SH2_ADDR];
+  offset = _ct_div(index, BLOCK_DATA_SIZE_QWORDS, m_prime, sh1, sh2);
+  base_block_id = [oram_position_map + 8 * BASE_BLOCK_ID_ADDR];
+  offset = #LEA(offset + base_block_id);
+  return offset;
+}
+
+inline
+fn block_id_for_index(
+  reg u64 oram_position_map,
+  reg u64 index
+) -> reg u64, reg u64
+{
+  reg u64 block_id hi lo divisor q r;
+  hi = 0; lo = index;
+  divisor = BLOCK_DATA_SIZE_QWORDS;
+  ?{ RAX=q, RDX=r } = #DIV(hi, lo, divisor);
+  q = q; r = r;
+  block_id = (64u)[oram_position_map + 2 * 8];
+  block_id = #LEA(block_id + q);
+  return block_id, r;
+}
+
+inline
+fn __i_read_accessor(
+  reg ptr u64[BLOCK_DATA_SIZE_QWORDS] block_data,
+  reg u64 out_data
+) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
+{
+  reg u64 r64;
+  inline int i;
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    r64 = block_data[u64 i];
+    (u64)[out_data + 8 * i] = r64;
+  }
+  return block_data;
+}
+
+inline
+fn _i_write_accessor_partial(
+  reg ptr u64[BLOCK_DATA_SIZE_QWORDS] block_data,
+  reg u64 in_data_start,
+  reg u64 in_data out_data
+) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS]
+{
+  reg u64 tmp0;
+  reg u8 c1;
+  reg bool b;
+  inline int i;
+
+  if (out_data != 0) {
+    block_data = __i_read_accessor(block_data, out_data);
+  }
+
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    // cond
+    b = in_data_start == i;
+    c1 = #SETcc(b);
+
+    tmp0 = block_data[i];
+    block_data[i] = _ternary(c1, in_data, tmp0);
+  }
+  return block_data;
+}
+
+inline
+fn _i_write_accessor_partial_out(
+  reg ptr u64[BLOCK_DATA_SIZE_QWORDS] block_data,
+  reg u64 in_data_start,
+  reg u64 in_data
+) -> reg ptr u64[BLOCK_DATA_SIZE_QWORDS], reg u64
+{
+  reg u64 out_data;
+  reg u8 c1;
+  reg bool b;
+  inline int i;
+
+  out_data = #set0();
+  for i = 0 to BLOCK_DATA_SIZE_QWORDS
+  {
+    // cond
+    b = in_data_start == i;
+    c1 = #SETcc(b);
+
+    out_data = _ternary(c1, block_data[i], out_data);
+    block_data[i] = _ternary(c1, in_data, block_data[i]);
+  }
+  return block_data, out_data;
+}
+
 require "oram_position_map.jinc"
 
 inline

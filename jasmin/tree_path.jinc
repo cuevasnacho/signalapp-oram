@@ -70,13 +70,14 @@ fn node_val(
 inline
 fn tree_path_update(
   reg u64 t,
-  reg u64 leaf
+  reg u64 leaf,
+  inline int length
 )
 {
   reg u64 offset;
   inline int root root_level level;
 
-  root_level = PATH_LENGTH - 1;
+  root_level = length - 1;
   root = ((64u)1 << root_level) - 1;
 
   offset = coords_for_val(leaf);

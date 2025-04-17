@@ -17,12 +17,7 @@
 void oram_access_read_jazz(oram *oram, u64 block_id, u64 *out_data);
 void oram_access_write_jazz(oram *oram, u64 block_id, u64 *in_data);
 void odd_even_msort_jazz(block* blocks, u64* block_level_assignments, size_t lb, size_t ub);
-
-static inline uint64_t get_cycles() {
-  uint32_t low, high;
-  __asm__ volatile("rdtsc" : "=a" (low), "=d" (high));
-  return ((uint64_t)high << 32) | low;
-}
+void bitonic_sort(block* blocks, u64* block_level_assignments, size_t lb, size_t ub, bool direction);
 
 static inline uint64_t cpucycles(void) {
   uint64_t result;
@@ -128,9 +123,9 @@ int test_sort() {
   memcpy(bucket_assignments_jazz, original_bucket_assignments, sizeof(original_bucket_assignments));
 
   // Measure time and cycles for C version
-  t0 = get_cycles();
+  t0 = cpucycles();
   bitonic_sort(blocks, bucket_assignments, 0, ARR_SIZE, true);
-  t1 = get_cycles();
+  t1 = cpucycles();
   printf("bitonic sort: %lu cycles\n", t1 - t0);
   
   for(size_t i = 1; i < num_blocks; ++i) {
@@ -150,9 +145,9 @@ int test_sort() {
   printf("\n");
   
   // Measure time and cycles for C version
-  t0 = get_cycles();
+  t0 = cpucycles();
   odd_even_msort_jazz(blocks_jazz, bucket_assignments_jazz, 0, ARR_SIZE);
-  t1 = get_cycles();
+  t1 = cpucycles();
   printf("odd even msort: %lu cycles\n", t1 - t0);
   
   for(size_t i = 1; i < num_blocks; ++i) {
@@ -177,7 +172,6 @@ int test_sort() {
 int test_oram() {
   // benchmark variables
   uint64_t t[NRUNS], i;
-  size_t ri;
 
   // initialize oram
   oram *oram0 = oram_create(CAPACITY, TEST_STASH_SIZE, getentropy);
@@ -232,9 +226,69 @@ int test_oram() {
   return err_SUCCESS;
 }
 
+#define ALLOC_N 4000
+int test_get_put_repeat()
+{
+  // benchmark variables
+  uint64_t t0, t1, t2;
+  uint64_t tC[ALLOC_N], tJ[ALLOC_N];
+
+  size_t capacity = 1 << 24;
+  oram *oram0 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
+  oram *oram1 = oram_create(capacity, TEST_STASH_SIZE, getentropy);
+
+  oram_allocate_contiguous(oram0, ALLOC_N-1);
+  oram_allocate_block(oram0);
+  oram_allocate_contiguous(oram1, ALLOC_N-1);
+  oram_allocate_block(oram1);
+
+  for (size_t b = 0; b < ALLOC_N; ++b)
+  {
+    u64 buf[BLOCK_DATA_SIZE_QWORDS];
+    for (size_t i = 0; i < BLOCK_DATA_SIZE_QWORDS; ++i)
+    {
+      buf[i] = b * BLOCK_DATA_SIZE_QWORDS + i;
+    }
+    t0 = cpucycles();
+    RETURN_IF_ERROR(oram_put(oram0, b, buf));
+    t1 = cpucycles();
+    oram_access_write_jazz(oram1, b, buf);
+    t2 = cpucycles();
+    tC[b] = t1 - t0;
+    tJ[b] = t2 - t1;
+  }
+  print_results_jasmin("oram_put", tC, ALLOC_N);
+  print_results_jasmin("oram_put_jazz", tJ, ALLOC_N);
+
+  for (size_t b = 0; b < ALLOC_N; ++b)
+  {
+    u64 buf0[BLOCK_DATA_SIZE_QWORDS];
+    u64 buf1[BLOCK_DATA_SIZE_QWORDS];
+    t0 = cpucycles();
+    RETURN_IF_ERROR(oram_get(oram0, b, buf0));
+    t1 = cpucycles();
+    oram_access_read_jazz(oram1, b, buf1);
+    t2 = cpucycles();
+    tC[b] = t1 - t0;
+    tJ[b] = t2 - t1;
+    for (size_t i = 0; i < BLOCK_DATA_SIZE_QWORDS; ++i)
+    {
+      TEST_ASSERT(buf0[i] == b * BLOCK_DATA_SIZE_QWORDS + i);
+      TEST_ASSERT(buf1[i] == b * BLOCK_DATA_SIZE_QWORDS + i);
+    }
+  }
+  print_results_jasmin("oram_get", tC, ALLOC_N);
+  print_results_jasmin("oram_get_jazz", tJ, ALLOC_N);
+
+  oram_destroy(oram0);
+  oram_destroy(oram1);
+  return err_SUCCESS;
+}
+
 int main(void)
 {
   test_sort();
   test_oram();
+  test_get_put_repeat();
   return 0;
 }

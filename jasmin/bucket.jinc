@@ -39,16 +39,17 @@ fn bucket_store_read_bucket_blocks(
   #msf reg u64 msf
 ) -> #msf reg u64
 {
-  reg u64 offset encrypted_bucket data r64;
+  reg u128 r;
+  reg u64 offset encrypted_bucket data;
   inline int i;
 
   data, msf = bucket_store_data(bucket_store, msf);
   offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
   encrypted_bucket = data + offset;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET
+  for i = 0 to (DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET) / 2
   {
-    r64 = (64u)[encrypted_bucket + 8 * i];
-    (u64)[bucket_data + 8 * i] = r64;
+    r = (u128)[encrypted_bucket + 16 * i];
+    (u128)[bucket_data + 16 * i] = r;
   }
   return msf;
 }
@@ -60,16 +61,17 @@ fn bucket_store_write_bucket_blocks(
   #msf reg u64 msf
 ) -> #msf reg u64
 {
-  reg u64 offset encrypted_bucket data r64;
+  reg u128 r;
+  reg u64 offset encrypted_bucket data;
   inline int i;
 
   data, msf = bucket_store_data(bucket_store, msf);
   offset = bucket_id * ENCRYPTED_BUCKET_SIZE;
   encrypted_bucket = data + offset;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET
+  for i = 0 to (DECRYPTED_BLOCK_SIZE_QWORDS * BLOCKS_PER_BUCKET) / 2
   {
-    r64 = (64u)[bucket_data + 8 * i];
-    (u64)[encrypted_bucket + 8 * i] = r64;
+    r = (u128)[bucket_data + 16 * i];
+    (u128)[encrypted_bucket + 16 * i] = r;
   }
 
   return msf;
