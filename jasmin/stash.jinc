@@ -133,14 +133,18 @@ fn _i_cond_copy_block(
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] src
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
 {
-  reg u128 tmp va;
+  reg u256 tmp va;
+  reg u128 tmp128 va128;
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
-    va = (u128)[dst];
-    tmp = _ternary128(cond, src[u128 i], va);
-    (u128)[dst] = tmp;
-    dst = #LEA(dst + 16);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 4 {
+    va = (u256)[dst];
+    tmp = _ternary256(cond, src[u256 i], va);
+    (u256)[dst] = tmp;
+    dst = #LEA(dst + 32);
   }
+  va128 = (u128)[dst];
+  tmp128 = _ternary128(cond, src[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2], va128);
+  (u128)[dst] = tmp128;
   return src;
 }
 
@@ -165,15 +169,21 @@ fn _i_cond_swap_blocks(
   reg u64 b
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
 {
-  reg u128 tmp rb;
+  reg u256 tmp rb;
+  reg u128 tmp128 rb128;
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
-    rb = (u128)[b];
-    tmp = _ternary128(cond, a[u128 i], rb);
-    (u128)[b] = tmp;
-    a[u128 i] = _ternary128(cond, rb, a[u128 i]);
-    b = #LEA(b + 16);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 4 {
+    rb = (u256)[b];
+    tmp = _ternary256(cond, a[u256 i], rb);
+    (u256)[b] = tmp;
+    a[u256 i] = _ternary256(cond, rb, a[u256 i]);
+    b = #LEA(b + 32);
   }
+  rb128 = (u128)[b];
+  tmp128 = _ternary128(cond, a[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2], rb128);
+  (u128)[b] = tmp128;
+  a[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2] =
+    _ternary128(cond, rb128, a[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2]);
   return a;
 }
 

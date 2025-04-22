@@ -55,6 +55,30 @@ fn _ternary128(
 }
 
 inline
+fn _ternary256(
+  reg u8 cond,
+  reg u256 a b
+) -> reg u256
+{
+  reg u256 c0 c1;
+  reg u64 r ext_cond;
+  stack u64 c0_s c1_s;
+
+  a = a; b = b;
+  ext_cond = (64u)cond;
+  r = #LEA(ext_cond - 1);
+  ext_cond = -ext_cond;
+  c0_s = r;
+  c1_s = ext_cond;
+  c0 = #VPBROADCAST_4u64(c0_s);
+  c1 = #VPBROADCAST_4u64(c1_s);
+  b = #VPAND_256(b, c0);
+  a = #VPAND_256(a, c1);
+  a = #VPOR_256(a, b);
+  return a;
+}
+
+inline
 fn _cond_obv_cpy_u64(
   reg u8 cond,
   reg u64 dest src
@@ -78,6 +102,19 @@ fn _cond_obv_cpy_u128(
   b = (u128)[src];
   tmp = _ternary128(cond, b, a);
   (u128)[dest] = tmp;
+}
+
+inline
+fn _cond_obv_cpy_u256(
+  reg u8 cond,
+  reg u64 dest src
+)
+{
+  reg u256 a b tmp;
+  a = (u256)[dest];
+  b = (u256)[src];
+  tmp = _ternary256(cond, b, a);
+  (u256)[dest] = tmp;
 }
 
 inline
@@ -108,6 +145,21 @@ fn _cond_obv_swap_u128(
   (u128)[a] = tmp;
   tmp = _ternary128(cond, ra, rb);
   (u128)[b] = tmp;
+}
+
+inline
+fn _cond_obv_swap_u256(
+  reg u8 cond,
+  reg u64 a b
+)
+{
+  reg u256 ra rb tmp;
+  ra = (u256)[a];
+  rb = (u256)[b];
+  tmp = _ternary256(cond, rb, ra);
+  (u256)[a] = tmp;
+  tmp = _ternary256(cond, ra, rb);
+  (u256)[b] = tmp;
 }
 
 inline
