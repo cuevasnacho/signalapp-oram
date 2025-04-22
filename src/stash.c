@@ -481,7 +481,7 @@ int test_oblv_sort() {
     memcpy(original_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
     memcpy(jazz_bucket_assignments, bucket_assignments, sizeof(bucket_assignments));
 
-    odd_even_msort(blocks, bucket_assignments, 0, num_blocks);
+    bitonic_sort(blocks, bucket_assignments, 0, num_blocks, true);
     odd_even_msort_jazz(jazz_blocks, jazz_bucket_assignments, 0, num_blocks);
 
     for(size_t i = 1; i < num_blocks; ++i) {
