@@ -73,6 +73,7 @@ fn _stash_overflow_ub(
 {
   reg u64 i j overflow_blocks bid offset;
   reg u64 zero;
+  reg u8 c;
   reg bool b cond;
 
   i, msf = stash_overflow_capacity(stash, msf);
@@ -87,11 +88,11 @@ fn _stash_overflow_ub(
     #declassify bid = (64u)[overflow_blocks]; //! if bid is secret we cannot use it in condition
     bid = #protect(bid, msf);
     b = bid != EMPTY_BLOCK_ID;
+    c = #SETcc(b);
     j = zero;
-    j = #CMOVcc(b, i, j);
+    j = _ternary(c, i, j);
     i -= 1;
-    b = bid != EMPTY_BLOCK_ID;
-    i = #CMOVcc(b, zero, i);
+    i = _ternary(c, zero, i);
   }
   msf = #update_msf(!cond, msf);
   return j, msf;
@@ -354,50 +355,50 @@ fn _i_stash_add_block(
   overflow_blocks, msf = stash_overflow_blocks(stash, msf);
   overflow_capacity, msf = stash_overflow_capacity(stash, msf);
 
-  c1 = 0; // inserted
-  while {
-    i = 0;
-    while { cond = i < overflow_capacity; } (cond) {
-      msf = #update_msf(cond, msf);
-      bid = [overflow_blocks];
-      // cond
-      c1 = !c1;
-      b = bid == EMPTY_BLOCK_ID;
-      c2 = #SETcc(b);
-      c2 &= c1;
-      new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-      c1 = !c1;
-      c1 |= c2;
-      i += 1;
-      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
-    }
-    msf = #update_msf(!cond, msf);
-    cond = c1 == 0;
-  } (cond) { // !inserted
-    msf = #update_msf(cond, msf);
-    () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
-    _stash_extend_overflow(stash, length);
-    msf = #init_msf();
-    () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
-  }
-  // msf = #update_msf(!cond, msf);
   // c1 = 0; // inserted
-  // i = 0;
-  // while { cond = i < overflow_capacity; } (cond) {
+  // while {
+  //   i = 0;
+  //   while { cond = i < overflow_capacity; } (cond) {
+  //     msf = #update_msf(cond, msf);
+  //     bid = [overflow_blocks];
+  //     // cond
+  //     c1 = !c1;
+  //     b = bid == EMPTY_BLOCK_ID;
+  //     c2 = #SETcc(b);
+  //     c2 &= c1;
+  //     new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+  //     c1 = !c1;
+  //     c1 |= c2;
+  //     i += 1;
+  //     overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  //   }
+  //   msf = #update_msf(!cond, msf);
+  //   cond = c1 == 0;
+  // } (cond) { // !inserted
   //   msf = #update_msf(cond, msf);
-  //   bid = [overflow_blocks];
-  //   // cond
-  //   c1 = !c1;
-  //   b = bid == EMPTY_BLOCK_ID;
-  //   c2 = #SETcc(b);
-  //   c2 &= c1;
-  //   new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-  //   c1 = !c1;
-  //   c1 |= c2;
-  //   i += 1;
-  //   overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  //   () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
+  //   _stash_extend_overflow(stash, length);
+  //   msf = #init_msf();
+  //   () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
   // }
   // msf = #update_msf(!cond, msf);
+  c1 = 0; // inserted
+  i = 0;
+  while { cond = i < overflow_capacity; } (cond) {
+    msf = #update_msf(cond, msf);
+    bid = [overflow_blocks];
+    // cond
+    c1 = !c1;
+    b = bid == EMPTY_BLOCK_ID;
+    c2 = #SETcc(b);
+    c2 &= c1;
+    new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+    c1 = !c1;
+    c1 |= c2;
+    i += 1;
+    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  }
+  msf = #update_msf(!cond, msf);
   return new_block, msf;
 }
 
@@ -469,20 +470,18 @@ fn _stash_assign_block_to_bucket_path(
     // is_assigned = cond | is_assigned;
     c1 = !c1;
     c1 |= c2;
-    b = c2 != 0;
     
     // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
     // for this position.
     // increment this, it will only get saved if `b` is true.
     r1 = #LEA(r2 + 1);
-    r1 = #CMOVcc(b, r1, r2);
+    r1 = _ternary(c2, r1, r2);
     () = #unspill(bucket_assignments);
     (u64)[bucket_occupancy + 8 * lvl] = r1;
     r1 = (64u)[bucket_assignments + 8 * index];
     r1 = #protect(r1, msf);
-    b = c2 != 0;
     tmp = (64u)lvl;
-    r1 = #CMOVcc(b, tmp, r1);
+    r1 = _ternary(c2, tmp, r1);
     (u64)[bucket_assignments + 8 * index] = r1;
   }
 
@@ -560,20 +559,18 @@ fn _stash_assign_block_to_bucket_overflow(
     // is_assigned = cond | is_assigned;
     c1 = !c1;
     c1 |= c2;
-    b = c2 != 0;
     
     // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
     // for this position.
     // increment this, it will only get saved if `b` is true.
     r1 = #LEA(r2 + 1);
-    r1 = #CMOVcc(b, r1, r2);
+    r1 = _ternary(c2, r1, r2);
     () = #unspill(assignment_index, bucket_assignments);
     (u64)[bucket_occupancy + 8 * lvl] = r1;
     r1 = (64u)[bucket_assignments + 8 * assignment_index];
     r1 = #protect(r1, msf);
-    b = c2 != 0;
     tmp = lvl;
-    r1 = #CMOVcc(b, tmp, r1);
+    r1 = _ternary(c2, tmp, r1);
     (u64)[bucket_assignments + 8 * assignment_index] = r1;
   }
 
@@ -617,9 +614,8 @@ fn _stash_place_empty_blocks(
       c2 = #SETcc(b);
       c2 &= c1;
       // set_curr_bucket
-      b = c2 != 0;
       tmp_r = (64u)j;
-      curr_bucket = #CMOVcc(b, tmp_r, curr_bucket);
+      curr_bucket = _ternary(c2, tmp_r, curr_bucket);
       c1 = !c1;
       c1 |= c2;
     }
@@ -632,13 +628,12 @@ fn _stash_place_empty_blocks(
     b = tmp_bo < BLOCKS_PER_BUCKET;
     c1 = #SETcc(b);
     c1 &= c2;
-    b = c1 != 0;
 
     tmp_r = #LEA(tmp_bo + 1);
-    tmp_r = #CMOVcc(b, tmp_r, tmp_bo);
+    tmp_r = _ternary(c1, tmp_r, tmp_bo);
     (u64)[bucket_occupancy + 8 * curr_bucket] = tmp_r;
     tmp_bo = (64u)[bucket_assignments + 8 * i];
-    tmp_r = #CMOVcc(b, curr_bucket, tmp_bo);
+    tmp_r = _ternary(c1, curr_bucket, tmp_bo);
     (u64)[bucket_assignments + 8 * i] = tmp_r;
     i += 1;
   }

@@ -26,8 +26,8 @@ fn _ternary(
   ext_cond = -ext_cond;
   b &= r;
   a &= ext_cond;
-  a |= b;
-  return a;
+  b |= a;
+  return b;
 }
 
 inline
