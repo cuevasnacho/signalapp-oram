@@ -73,6 +73,7 @@ fn _stash_overflow_ub(
 {
   reg u64 i j overflow_blocks bid offset;
   reg u64 zero;
+  reg u8 c;
   reg bool b cond;
 
   i, msf = stash_overflow_capacity(stash, msf);
@@ -87,11 +88,11 @@ fn _stash_overflow_ub(
     #declassify bid = (64u)[overflow_blocks]; //! if bid is secret we cannot use it in condition
     bid = #protect(bid, msf);
     b = bid != EMPTY_BLOCK_ID;
+    c = #SETcc(b);
     j = zero;
-    j = #CMOVcc(b, i, j);
+    j = _ternary(c, i, j);
     i -= 1;
-    b = bid != EMPTY_BLOCK_ID;
-    i = #CMOVcc(b, zero, i);
+    i = _ternary(c, zero, i);
   }
   msf = #update_msf(!cond, msf);
   return j, msf;
@@ -119,10 +120,10 @@ fn _cond_copy_block(
 )
 {
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    _cond_obv_cpy_u64(cond, dst, src);
-    dst = #LEA(dst + 8);
-    src = #LEA(src + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
+    _cond_obv_cpy_u128(cond, dst, src);
+    dst = #LEA(dst + 16);
+    src = #LEA(src + 16);
   }
 }
 
@@ -133,14 +134,18 @@ fn _i_cond_copy_block(
   reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS] src
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
 {
-  reg u64 tmp va;
+  reg u256 tmp va;
+  reg u128 tmp128 va128;
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    va = (64u)[dst];
-    tmp = _ternary(cond, src[u64 i], va);
-    (u64)[dst] = tmp;
-    dst = #LEA(dst + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 4 {
+    va = (u256)[dst];
+    tmp = _ternary256(cond, src[u256 i], va);
+    (u256)[dst] = tmp;
+    dst = #LEA(dst + 32);
   }
+  va128 = (u128)[dst];
+  tmp128 = _ternary128(cond, src[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2], va128);
+  (u128)[dst] = tmp128;
   return src;
 }
 
@@ -151,10 +156,10 @@ fn _cond_swap_blocks(
 )
 {
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    _cond_obv_swap_u64(cond, a, b);
-    a = #LEA(a + 8);
-    b = #LEA(b + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 2 {
+    _cond_obv_swap_u128(cond, a, b);
+    a = #LEA(a + 16);
+    b = #LEA(b + 16);
   }
 }
 
@@ -165,15 +170,21 @@ fn _i_cond_swap_blocks(
   reg u64 b
 ) -> reg ptr u64[DECRYPTED_BLOCK_SIZE_QWORDS]
 {
-  reg u64 tmp rb;
+  reg u256 tmp rb;
+  reg u128 tmp128 rb128;
   inline int i;
-  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS {
-    rb = (64u)[b];
-    tmp = _ternary(cond, a[u64 i], rb);
-    (u64)[b] = tmp;
-    a[u64 i] = _ternary(cond, rb, a[u64 i]);
-    b = #LEA(b + 8);
+  for i = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 4 {
+    rb = (u256)[b];
+    tmp = _ternary256(cond, a[u256 i], rb);
+    (u256)[b] = tmp;
+    a[u256 i] = _ternary256(cond, rb, a[u256 i]);
+    b = #LEA(b + 32);
   }
+  rb128 = (u128)[b];
+  tmp128 = _ternary128(cond, a[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2], rb128);
+  (u128)[b] = tmp128;
+  a[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2] =
+    _ternary128(cond, rb128, a[u128 (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 2]);
   return a;
 }
 
@@ -344,31 +355,48 @@ fn _i_stash_add_block(
   overflow_blocks, msf = stash_overflow_blocks(stash, msf);
   overflow_capacity, msf = stash_overflow_capacity(stash, msf);
 
+  // c1 = 0; // inserted
+  // while {
+  //   i = 0;
+  //   while { cond = i < overflow_capacity; } (cond) {
+  //     msf = #update_msf(cond, msf);
+  //     bid = [overflow_blocks];
+  //     // cond
+  //     c1 = !c1;
+  //     b = bid == EMPTY_BLOCK_ID;
+  //     c2 = #SETcc(b);
+  //     c2 &= c1;
+  //     new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+  //     c1 = !c1;
+  //     c1 |= c2;
+  //     i += 1;
+  //     overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
+  //   }
+  //   msf = #update_msf(!cond, msf);
+  //   cond = c1 == 0;
+  // } (cond) { // !inserted
+  //   msf = #update_msf(cond, msf);
+  //   () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
+  //   _stash_extend_overflow(stash, length);
+  //   msf = #init_msf();
+  //   () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
+  // }
+  // msf = #update_msf(!cond, msf);
   c1 = 0; // inserted
-  while {
-    i = 0;
-    while { cond = i < overflow_capacity; } (cond) {
-      msf = #update_msf(cond, msf);
-      bid = [overflow_blocks];
-      // cond
-      c1 = !c1;
-      b = bid == EMPTY_BLOCK_ID;
-      c2 = #SETcc(b);
-      c2 &= c1;
-      new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
-      c1 = !c1;
-      c1 |= c2;
-      i += 1;
-      overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
-    }
-    msf = #update_msf(!cond, msf);
-    cond = c1 == 0;
-  } (cond) { // !inserted
+  i = 0;
+  while { cond = i < overflow_capacity; } (cond) {
     msf = #update_msf(cond, msf);
-    () = #spill(new_block, overflow_blocks, overflow_capacity, c1);
-    _stash_extend_overflow(stash, length);
-    msf = #init_msf();
-    () = #unspill(new_block, overflow_blocks, overflow_capacity, c1);
+    bid = [overflow_blocks];
+    // cond
+    c1 = !c1;
+    b = bid == EMPTY_BLOCK_ID;
+    c2 = #SETcc(b);
+    c2 &= c1;
+    new_block = _i_cond_copy_block(c2, overflow_blocks, new_block);
+    c1 = !c1;
+    c1 |= c2;
+    i += 1;
+    overflow_blocks = #LEA(overflow_blocks + 8 * DECRYPTED_BLOCK_SIZE_QWORDS);
   }
   msf = #update_msf(!cond, msf);
   return new_block, msf;
@@ -442,20 +470,18 @@ fn _stash_assign_block_to_bucket_path(
     // is_assigned = cond | is_assigned;
     c1 = !c1;
     c1 |= c2;
-    b = c2 != 0;
     
     // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
     // for this position.
     // increment this, it will only get saved if `b` is true.
     r1 = #LEA(r2 + 1);
-    r1 = #CMOVcc(b, r1, r2);
+    r1 = _ternary(c2, r1, r2);
     () = #unspill(bucket_assignments);
     (u64)[bucket_occupancy + 8 * lvl] = r1;
     r1 = (64u)[bucket_assignments + 8 * index];
     r1 = #protect(r1, msf);
-    b = c2 != 0;
     tmp = (64u)lvl;
-    r1 = #CMOVcc(b, tmp, r1);
+    r1 = _ternary(c2, tmp, r1);
     (u64)[bucket_assignments + 8 * index] = r1;
   }
 
@@ -533,20 +559,18 @@ fn _stash_assign_block_to_bucket_overflow(
     // is_assigned = cond | is_assigned;
     c1 = !c1;
     c1 |= c2;
-    b = c2 != 0;
     
     // If `b` is true, put it in the bucket: increment the bucket occupancy and set the bucket assignment
     // for this position.
     // increment this, it will only get saved if `b` is true.
     r1 = #LEA(r2 + 1);
-    r1 = #CMOVcc(b, r1, r2);
+    r1 = _ternary(c2, r1, r2);
     () = #unspill(assignment_index, bucket_assignments);
     (u64)[bucket_occupancy + 8 * lvl] = r1;
     r1 = (64u)[bucket_assignments + 8 * assignment_index];
     r1 = #protect(r1, msf);
-    b = c2 != 0;
     tmp = lvl;
-    r1 = #CMOVcc(b, tmp, r1);
+    r1 = _ternary(c2, tmp, r1);
     (u64)[bucket_assignments + 8 * assignment_index] = r1;
   }
 
@@ -590,9 +614,8 @@ fn _stash_place_empty_blocks(
       c2 = #SETcc(b);
       c2 &= c1;
       // set_curr_bucket
-      b = c2 != 0;
       tmp_r = (64u)j;
-      curr_bucket = #CMOVcc(b, tmp_r, curr_bucket);
+      curr_bucket = _ternary(c2, tmp_r, curr_bucket);
       c1 = !c1;
       c1 |= c2;
     }
@@ -605,13 +628,12 @@ fn _stash_place_empty_blocks(
     b = tmp_bo < BLOCKS_PER_BUCKET;
     c1 = #SETcc(b);
     c1 &= c2;
-    b = c1 != 0;
 
     tmp_r = #LEA(tmp_bo + 1);
-    tmp_r = #CMOVcc(b, tmp_r, tmp_bo);
+    tmp_r = _ternary(c1, tmp_r, tmp_bo);
     (u64)[bucket_occupancy + 8 * curr_bucket] = tmp_r;
     tmp_bo = (64u)[bucket_assignments + 8 * i];
-    tmp_r = #CMOVcc(b, curr_bucket, tmp_bo);
+    tmp_r = _ternary(c1, curr_bucket, tmp_bo);
     (u64)[bucket_assignments + 8 * i] = tmp_r;
     i += 1;
   }
@@ -680,51 +702,86 @@ fn _stash_assign_buckets(
 }
 
 inline
-fn _comp_blocks(
-  reg u64 blocks block_level_assignments,
-  reg u64 idx1 idx2
-) -> reg u8
+fn _comp_and_swap(
+  reg u64 bla0 bla1 b0 b1
+)
 {
-  reg u64 bla1 bla2 b1 b2 offset;
-  reg u8 r s;
-  reg bool b;
+  reg u256 t0 t1 tmp256 mask2 mask3;
+  reg u128 r0 r1 tmp128 mask0 mask1;
+  reg u64 a b tmp cond0 cond1;
+  reg u32 edi;
+  reg u8 dil al dl;
+  inline int r;
+  reg bool cond;
+  stack u64 c0_s c1_s;
 
-  bla1 = (64u)[block_level_assignments + 8 * idx1];
-  bla2 = (64u)[block_level_assignments + 8 * idx2];
-  offset = 8 * idx1;
-  offset *= DECRYPTED_BLOCK_SIZE_QWORDS;
-  offset += 8;
-  b1 = (64u)[blocks + offset];
-  offset = 8 * idx2;
-  offset *= DECRYPTED_BLOCK_SIZE_QWORDS;
-  offset += 8;
-  b2 = (64u)[blocks + offset];
+  a = [bla0];  // block_level_assignments
+  b = [bla1];  // block_level_assignments
+  tmp = [b0 + 8]; // blocks
 
-  b = b1 > b2;
-  r = #SETcc(b);
-  b = bla1 == bla2;
-  s = #SETcc(b);
-  r &= s;
-  b = bla1 > bla2;
-  s = #SETcc(b);
-  r |= s;
-  return r;
-}
+  // comp_blocks
+  cond = [b1 + 8] < tmp;
+  dil = #SETcc(cond);
+  cond = a == b;
+  al = #SETcc(cond);
+  al &= dil;
+  cond = a > b;
+  dl = #SETcc(cond);
+  al |= dl;
 
-inline
-fn _min(reg u64 a b) -> reg u64
-{
-  // b ^ ((a ^ b) & -((a - b) >> 63));
-  reg u64 sub;
-  sub = a;
-  sub -= b;
-  sub >>= 63;
-  sub = -sub;
-  a = a;
-  a ^= b;
-  a &= sub;
-  b ^= a;
-  return b;
+  edi = (32u)al;  // cond
+  cond0 = (64u)edi;
+  cond0 -= 1;
+  cond1 = (64u)edi;
+  cond1 = -cond1;
+
+  c0_s = cond0;
+  c1_s = cond1;
+  mask2 = #VPBROADCAST_4u64(c0_s);
+  mask3 = #VPBROADCAST_4u64(c1_s);
+  // cond_swap_blocks
+  for r = 0 to DECRYPTED_BLOCK_SIZE_QWORDS / 4 {
+    t0 = (u256)[b0 + r * 32];
+    t1 = (u256)[b1 + r * 32];
+    tmp256 = t0;
+    t1 = #VPAND_256(t1, mask3);
+    t0 = #VPAND_256(t0, mask3);
+    tmp256 = #VPAND_256(tmp256, mask2);
+    t1 = #VPOR_256(t1, tmp256);
+    (u256)[b0 + r * 32] = t1;
+    t1 = (u256)[b1 + r * 32];
+    t1 = #VPAND_256(t1, mask2);
+    t0 = #VPOR_256(t0, t1);
+    (u256)[b1 + r * 32] = t0;
+  }
+  mask0 = #VPBROADCAST_2u64(c0_s);
+  mask1 = #VPBROADCAST_2u64(c1_s);
+
+  r0 = (u128)[b0 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32];
+  r1 = (u128)[b1 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32];
+  tmp128 = r0;
+  r1 = #VPAND_128(r1, mask1);
+  r0 = #VPAND_128(r0, mask1);
+  tmp128 = #VPAND_128(tmp128, mask0);
+  r1 = #VPOR_128(r1, tmp128);
+  (u128)[b0 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32] = r1;
+  r1 = (u128)[b1 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32];
+  r1 = #VPAND_128(r1, mask0);
+  r0 = #VPOR_128(r0, r1);
+  (u128)[b1 + (DECRYPTED_BLOCK_SIZE_QWORDS / 4) * 32] = r0;
+
+  // cond_obv_swap_u64
+  tmp = [bla0];
+  a = [bla1];
+  b = tmp;
+  a &= cond1;
+  tmp &= cond1;
+  b &= cond0;
+  a |= b;
+  [bla0] = a;
+  cond0 &= [bla1];
+  tmp |= cond0;
+  [bla1] = tmp;
 }
 
 inline
@@ -734,124 +791,154 @@ fn _odd_even_msort(
   #msf reg u64 msf
 ) -> #msf reg u64
 {
-  // indices variables
-  reg u64 p k j i;
-  // mmx
-  #mmx reg u64 msf_s;
+  reg u64 n;
+  n = ub - lb;
+  // if (n <= 1) return;
+
+  // pointer variables
+  reg u64 current_assignment next_step rdx rcx;
+  // standard variables
+  reg u64 i j k mini adjusted_range mod_p block_offset rdi r13 rax;
   // temporary variables
-  reg u64 bound mini idx1 idx2 divisor one tmp addr1 addr2;
+  reg u64 rax_3 b0 b1 bla0 bla1;
   // boolean variables
-  reg u8 cond;
-  reg bool b;
+  reg bool cond;
 
-  () = #spill(blocks, block_level_assignments);
-  ub = ub; lb = lb;
-  ub -= lb;
-  () = #spill(lb);
-  p = 1; one = 1;
-  while { b = p < ub; } (b) {
-    msf = #update_msf(b, msf);
-    k = p;
-    () = #spill(p);
-    while { b = k >= 1; } (b) {
-      msf = #update_msf(b, msf);
-      j = k;
-      () = #unspill(p);
-      p = #protect(p, msf);
-      tmp = p;
-      () = #spill(p);
-      tmp -= 1;
-      j &= tmp;
-      j = j;
-      k = k;
-      bound = ub;
-      bound -= k;
-      while { b = j < bound; } (b) {
-        msf = #update_msf(b, msf);
-        () = #spill(bound);
-        mini = ub;
-        mini -= j;
-        mini -= k;
-        mini = _min(k, mini);
-        i = 0;
-        while { b = i < mini; } (b) {
-          msf = #update_msf(b, msf);
-          () = #spill(mini);
-          idx1 = #LEA(i + j);
-          idx2 = #LEA(idx1 + k);
-          () = #unspill(p);
-          p = #protect(p, msf);
-          msf_s = #mov_msf(msf);
-          divisor = p;
-          () = #spill(p);
-          divisor = #SHL(divisor, one);
+  current_assignment = #LEA(block_level_assignments + lb * 8);
+  k = 1;
+  () = #spill(current_assignment);
 
-          idx1 = idx1 / divisor;
-          idx1 = idx1;
-          idx2 = idx2;
-          idx2 = idx2 / divisor;
-          b = idx1 == idx2;
-          msf = #mov_msf(msf_s);
-          if (b) {
-            msf = #update_msf(b, msf);
-            msf_s = #mov_msf(msf);
-            idx1 = #LEA(i + j);
-            () = #spill(i, j, ub);
-            () = #unspill(lb);
-            lb = #protect(lb, msf);
-            idx1 = #LEA(idx1 + lb);
-            () = #spill(lb);
-            idx2 = #LEA(idx1 + k);
-            () = #spill(k);
-            () = #unspill(blocks, block_level_assignments);
-            blocks = #protect(blocks, msf);
-            block_level_assignments = #protect(block_level_assignments, msf);
-            cond = _comp_blocks(blocks, block_level_assignments, idx1, idx2);
-            // swap
-            addr1 = blocks;
-            tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx1;
-            addr1 += tmp;
-            tmp = 8 * DECRYPTED_BLOCK_SIZE_QWORDS * idx2;
-            addr2 = #LEA(blocks + tmp);
-            () = #spill(blocks);
-            _cond_swap_blocks(cond, addr1, addr2);
+  while {
+    next_step = #LEA(k + k);
+    mod_p = #LEA(k - 1); // mod k
+    cond = k != 0;
+    if (cond) {
+      msf = #update_msf(cond, msf);
+      while {
+        j = mod_p;
+        j &= k;
+        adjusted_range = n;
+        adjusted_range -= k;
+        cond = j < adjusted_range;  // j < n-k
+        if (cond) {
+          msf = #update_msf(cond, msf);
+          rax = k * (2 * DECRYPTED_BLOCK_SIZE);
+          () = #spill(n);
+          r13 = adjusted_range;
+          rdi = #LEA(k + k);
+          () = #spill(mod_p);
+          r13 -= j;
+          () = #spill(blocks, rax);
+          block_offset = #LEA(lb + j);
+          block_offset *= DECRYPTED_BLOCK_SIZE;
+          () = #spill(block_level_assignments, lb, adjusted_range);
+          rdx = #LEA(block_offset + blocks);
+          block_offset = #LEA(k + lb);
+          block_offset = #LEA(block_level_assignments + block_offset * 8);
+          rcx = rdx;
+          () = #spill(block_offset);
+          rax_3 = k * DECRYPTED_BLOCK_SIZE;
+          () = #spill(rax_3);
 
-            addr1 = block_level_assignments;
-            tmp = 8 * idx1;
-            addr1 += tmp;
-            tmp = 8 * idx2;
-            addr2 = #LEA(block_level_assignments + tmp);
-            () = #spill(block_level_assignments);
-            _cond_obv_swap_u64(cond, addr1, addr2);
-            msf = #mov_msf(msf_s);
-            () = #unspill(i, j, k, ub);
-            i = #protect(i, msf);
-            j = #protect(j, msf);
-            k = #protect(k, msf);
-            ub = #protect(ub, msf);
-          } else {
-            msf = #update_msf(!b, msf);
+          while {
+            mini = r13;
+            cond = k < r13;
+            mini = k if cond;
+            cond = mini != 0;
+            if (cond) {
+              msf = #update_msf(cond, msf);
+              () = #spill(rdi);
+              () = #unspill(current_assignment);
+              current_assignment = #protect(current_assignment, msf);
+              mini += j;
+              b0 = rcx;
+              bla1 = #LEA(j * 8);
+              () = #spill(rcx);
+              i = j;
+              bla0 = #LEA(current_assignment + bla1);
+              () = #spill(r13, current_assignment);
+              () = #unspill(block_offset);
+              block_offset = #protect(block_offset, msf);
+              
+              bla1 += block_offset;
+              () = #spill(block_offset);
+              () = #unspill(rax_3);
+              rax_3 = #protect(rax_3, msf);
+              b1 = #LEA(rax_3 + rcx);
+              () = #spill(rax_3);
+
+              while { cond = i != mini; } (cond) {
+                reg u64 left right;
+                msf = #update_msf(cond, msf);
+                left = i;
+                left /= next_step;
+                left = left;
+                right = #LEA(i + k);
+                () = #spill(i);
+                right /= next_step;
+                right = right;
+                () = #spill(next_step);
+                cond = left == right;
+                if (cond) {
+                  msf = #update_msf(cond, msf);
+                  _comp_and_swap(bla0, bla1, b0, b1);
+                } else {
+                  msf = #update_msf(!cond, msf);
+                }
+                () = #unspill(i, next_step);
+                i = #protect(i, msf);
+                next_step = #protect(next_step, msf);
+                i = #LEA(i + 1);
+                bla0 = #LEA(bla0 + 8);
+                bla1 = #LEA(bla1 + 8);
+                b1 = #LEA(b1 + DECRYPTED_BLOCK_SIZE);
+                b0 = #LEA(b0 + DECRYPTED_BLOCK_SIZE);
+              }
+              msf = #update_msf(!cond, msf);
+              () = #unspill(rdi, r13, rcx);
+              rdi = #protect(rdi, msf);
+              r13 = #protect(r13, msf);
+              rcx = #protect(rcx, msf);
+            } else {
+              msf = #update_msf(!cond, msf);
+            }
+            () = #unspill(rax);
+            rax = #protect(rax, msf);
+            j = #LEA(j + rdi);
+            r13 -= rdi;
+            rcx = #LEA(rcx + rax);
+            () = #spill(rax);
+            () = #unspill(adjusted_range);
+            adjusted_range = #protect(adjusted_range, msf);
+            cond = j < adjusted_range;
+            () = #spill(adjusted_range);
+          } (cond) {
+            msf = #update_msf(cond, msf);
           }
-          () = #unspill(mini);
-          mini = #protect(mini, msf);
-          i = #LEA(i + 1);
+          msf = #update_msf(!cond, msf);
+          () = #unspill(n, mod_p, blocks, block_level_assignments, lb);
+          n = #protect(n, msf);
+          mod_p = #protect(mod_p, msf);
+          blocks = #protect(blocks, msf);
+          lb = #protect(lb, msf);
+        } else {
+          msf = #update_msf(!cond, msf);
         }
-        msf = #update_msf(!b, msf);
-        tmp = k;
-        tmp = #SHL(tmp, one);
-        j = #LEA(j + tmp);
-        () = #unspill(bound);
-        bound = #protect(bound, msf);
+        k >>= 1;
+        cond = k != 0;
+      } (cond) {
+        msf = #update_msf(cond, msf);
       }
-      msf = #update_msf(!b, msf);
-      k = #SHR(k, one);
+      msf = #update_msf(!cond, msf);
+    } else {
+      msf = #update_msf(!cond, msf);
     }
-    msf = #update_msf(!b, msf);
-    () = #unspill(p);
-    p = #protect(p, msf);
-    p = #SHL(p, one);
+    k = next_step;
+    cond = next_step < n;
+  } (cond) {
+    msf = #update_msf(cond, msf);
   }
-  msf = #update_msf(!b, msf);
+  msf = #update_msf(!cond, msf);
 
   return msf;
 }
